@@ -64,6 +64,15 @@ export const candidateAPI = {
   uploadSelfie: (id, data) => api.post(`/candidates/${id}/selfie`, data),
   parseResume: (data) => api.post('/candidates/parse-resume', data),
   updateHiringStage: (id, stage, notes) => api.patch(`/candidates/${id}/hiring-stage`, { stage, notes }),
+  update: (id, data) => api.patch(`/candidates/${id}`, data),
+};
+
+// ─── Sectors Management Service ──────────────────────────
+export const sectorAPI = {
+  list: () => api.get('/sectors'),
+  create: (data) => api.post('/sectors', data),
+  update: (id, data) => api.patch(`/sectors/${id}`, data),
+  delete: (id) => api.delete(`/sectors/${id}`),
 };
 
 // ─── Hiring Roles & Sectors Service ──────────────────────

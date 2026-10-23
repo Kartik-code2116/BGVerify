@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { candidateAPI, roleAPI } from '../../services/api';
+import { candidateAPI, roleAPI, sectorAPI } from '../../services/api';
 import {
   Users,
   Plus,
@@ -31,6 +31,7 @@ import {
   ExternalLink,
   ChevronRight,
   X,
+  Edit2,
 } from 'lucide-react';
 import NewVerificationModal from '../../components/NewVerificationModal';
 import toast from 'react-hot-toast';
@@ -52,11 +53,21 @@ export default function CandidatesPage() {
 
   const [candidates, setCandidates] = useState([]);
   const [activeRoles, setActiveRoles] = useState([]);
+  const [sectors, setSectors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [activeFormTab, setActiveFormTab] = useState('resume'); // 'resume' | 'role' | 'personal' | 'academic' | 'employment'
   const [selectedCandidateForVerif, setSelectedCandidateForVerif] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Edit Candidate Modal State
+  const [editingCandidate, setEditingCandidate] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    targetRole: '',
+    sector: '',
+    urgency: 'medium',
+    hiringStage: 'applied',
+  });
 
   // Filters
   const [sectorFilter, setSectorFilter] = useState(searchParams.get('sector') || 'All Sectors');
@@ -140,6 +151,43 @@ export default function CandidatesPage() {
       }
     } catch (err) {
       console.error('Failed to load open roles', err);
+    }
+  };
+
+  const loadSectors = async () => {
+    try {
+      const res = await sectorAPI.list();
+      if (res.data.success) {
+        setSectors(res.data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to load sectors', err);
+    }
+  };
+
+  useEffect(() => {
+    loadSectors();
+  }, []);
+
+  const handleOpenEditCandidate = (c) => {
+    setEditingCandidate(c);
+    setEditFormData({
+      targetRole: c.targetRole || '',
+      sector: c.sector || (sectors[0]?.name || 'Technology & IT'),
+      urgency: c.urgency || 'medium',
+      hiringStage: c.hiringStage || 'applied',
+    });
+  };
+
+  const handleSaveCandidateEdit = async (e) => {
+    e.preventDefault();
+    try {
+      await candidateAPI.update(editingCandidate._id, editFormData);
+      toast.success(`Updated role & sector assignment for ${editingCandidate.firstName} ${editingCandidate.lastName}!`);
+      setEditingCandidate(null);
+      loadCandidates();
+    } catch (err) {
+      toast.error(err.response?.data?.error?.message || 'Failed to update candidate');
     }
   };
 
@@ -484,17 +532,27 @@ export default function CandidatesPage() {
       <div className="card p-4 space-y-3">
         {/* Sector Tabs */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
-          {SECTORS.map((sec) => (
+          <button
+            onClick={() => setSectorFilter('All Sectors')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition ${
+              sectorFilter === 'All Sectors'
+                ? 'bg-primary-500 text-white shadow-md shadow-primary-500/30'
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
+            All Sectors
+          </button>
+          {(sectors.length > 0 ? sectors : SECTORS.filter(s => s !== 'All Sectors').map(s => ({ name: s }))).map((sec) => (
             <button
-              key={sec}
-              onClick={() => setSectorFilter(sec)}
+              key={sec._id || sec.name}
+              onClick={() => setSectorFilter(sec.name)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition ${
-                sectorFilter === sec
+                sectorFilter === sec.name
                   ? 'bg-primary-500 text-white shadow-md shadow-primary-500/30'
                   : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
               }`}
             >
-              {sec}
+              {sec.name}
             </button>
           ))}
         </div>
@@ -680,6 +738,16 @@ export default function CandidatesPage() {
                               Hire Now
                             </button>
                           )}
+
+                          <button
+                            onClick={() => handleOpenEditCandidate(c)}
+                            className="btn btn-secondary btn-sm"
+                            style={{ fontSize: '12px', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            title="Edit candidate sector, role, or hiring stage"
+                          >
+                            <Edit2 size={12} />
+                            Edit
+                          </button>
 
                           <button
                             onClick={() => setSelectedCandidateForVerif(c._id)}
@@ -1020,7 +1088,7 @@ export default function CandidatesPage() {
                           value={formData.sector}
                           onChange={(e) => setFormData({ ...formData, sector: e.target.value })}
                         >
-                          {SECTORS.filter((s) => s !== 'All Sectors').map((s) => (
+                          {(sectors.length > 0 ? sectors.map((s) => s.name) : SECTORS.filter((s) => s !== 'All Sectors')).map((s) => (
                             <option key={s} value={s}>
                               {s}
                             </option>
@@ -1380,6 +1448,178 @@ export default function CandidatesPage() {
                 >
                   <CheckCircle2 size={16} />
                   {submitting ? 'Registering...' : 'Save & Register Candidate'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Candidate Assignment Modal */}
+      {editingCandidate && (
+        <div className="modal-overlay" onClick={() => setEditingCandidate(null)}>
+          <div className="modal" style={{ maxWidth: '520px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3 className="modal-title">Edit Candidate Assignment</h3>
+                <p className="modal-subtitle">
+                  Update sector, role requisition, or hiring urgency for {editingCandidate.firstName} {editingCandidate.lastName}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setEditingCandidate(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCandidateEdit}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    background: 'var(--bg-elevated)',
+                    borderRadius: '10px',
+                    border: '1px solid var(--border-subtle)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '50%',
+                      background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                      color: '#fff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    {editingCandidate.firstName?.[0]}
+                    {editingCandidate.lastName?.[0]}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '14px' }}>
+                      {editingCandidate.firstName} {editingCandidate.lastName}
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                      {editingCandidate.email} • {editingCandidate.phone || 'No phone'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Sector / Industry *</label>
+                  <select
+                    className="form-select"
+                    value={editFormData.sector}
+                    onChange={(e) => setEditFormData({ ...editFormData, sector: e.target.value })}
+                  >
+                    {(sectors.length > 0 ? sectors.map((s) => s.name) : SECTORS.filter((s) => s !== 'All Sectors')).map((secName) => (
+                      <option key={secName} value={secName}>
+                        {secName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Target Role *</label>
+                  <input
+                    type="text"
+                    required
+                    className="form-input"
+                    placeholder="e.g. Senior Backend Engineer"
+                    value={editFormData.targetRole}
+                    onChange={(e) => setEditFormData({ ...editFormData, targetRole: e.target.value })}
+                  />
+                  {activeRoles.filter((r) => !editFormData.sector || r.sector === editFormData.sector).length > 0 && (
+                    <div style={{ marginTop: '6px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Quick pick:</span>
+                      {activeRoles
+                        .filter((r) => !editFormData.sector || r.sector === editFormData.sector)
+                        .slice(0, 4)
+                        .map((r) => (
+                          <button
+                            key={r._id}
+                            type="button"
+                            onClick={() =>
+                              setEditFormData({
+                                ...editFormData,
+                                targetRole: r.title,
+                                urgency: r.urgency || editFormData.urgency,
+                              })
+                            }
+                            className="btn btn-ghost btn-xs"
+                            style={{
+                              fontSize: '11px',
+                              padding: '2px 6px',
+                              background: 'var(--bg-elevated)',
+                              border: '1px solid var(--border-subtle)',
+                            }}
+                          >
+                            {r.title}
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label className="form-label">Hiring Urgency</label>
+                    <select
+                      className="form-select"
+                      value={editFormData.urgency}
+                      onChange={(e) => setEditFormData({ ...editFormData, urgency: e.target.value })}
+                    >
+                      <option value="urgent">🚨 Urgent (Immediate 24h)</option>
+                      <option value="high">⚡ High Priority (48h)</option>
+                      <option value="medium">Standard Priority</option>
+                      <option value="low">Low Priority</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Hiring Stage</label>
+                    <select
+                      className="form-select"
+                      value={editFormData.hiringStage}
+                      onChange={(e) => setEditFormData({ ...editFormData, hiringStage: e.target.value })}
+                    >
+                      <option value="applied">Applied</option>
+                      <option value="screening">Screening</option>
+                      <option value="interviewing">Interviewing</option>
+                      <option value="verifying">Verifying</option>
+                      <option value="cleared">Cleared for Hire</option>
+                      <option value="hired">Hired & Onboarded</option>
+                      <option value="flagged">Flagged</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setEditingCandidate(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <CheckCircle2 size={16} /> Save Changes
                 </button>
               </div>
             </form>

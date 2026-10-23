@@ -374,6 +374,34 @@ router.patch(
   }
 );
 
+// PATCH /api/v1/candidates/:id — HR updates candidate info (e.g. Sector, Role, Urgency)
+router.patch(
+  '/:id',
+  authorize('admin', 'org_owner', 'hr_admin', 'hr_executive'),
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const query: any = { _id: req.params.id };
+      if (req.user!.role !== 'admin') {
+        query.organizationId = req.user!.organizationId;
+      }
+
+      const updateData = { ...req.body };
+      if (updateData.dateOfBirth === '') delete updateData.dateOfBirth;
+
+      const candidate = await Candidate.findOneAndUpdate(query, updateData, { new: true });
+      if (!candidate) throw new NotFoundError('Candidate not found');
+
+      res.status(200).json({
+        success: true,
+        message: 'Candidate updated successfully',
+        data: candidate,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 // PATCH /api/v1/candidates/:id/consent — candidate gives consent
 router.patch(
   '/:id/consent',

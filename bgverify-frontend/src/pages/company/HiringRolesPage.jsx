@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { roleAPI } from '../../services/api';
+import { roleAPI, sectorAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import {
   Briefcase,
@@ -23,17 +23,21 @@ import {
   Layers,
   GraduationCap,
   FileCheck2,
+  Settings2,
+  Edit2,
+  Trash2,
+  Check,
 } from 'lucide-react';
 
-const SECTORS = [
-  'All Sectors',
-  'Technology & IT',
-  'Financial Services & BFSI',
-  'Healthcare & Pharmaceuticals',
-  'Logistics & Supply Chain',
-  'Sales & Marketing',
-  'Human Resources',
-  'Operations & Administration',
+const COLOR_OPTIONS = [
+  { id: 'cyan', label: 'Cyan / Tech', bg: 'bg-cyan-500/20', text: 'text-cyan-300', border: 'border-cyan-500/40' },
+  { id: 'emerald', label: 'Emerald / Finance', bg: 'bg-emerald-500/20', text: 'text-emerald-300', border: 'border-emerald-500/40' },
+  { id: 'rose', label: 'Rose / Healthcare', bg: 'bg-rose-500/20', text: 'text-rose-300', border: 'border-rose-500/40' },
+  { id: 'amber', label: 'Amber / Logistics', bg: 'bg-amber-500/20', text: 'text-amber-300', border: 'border-amber-500/40' },
+  { id: 'purple', label: 'Purple / HR', bg: 'bg-purple-500/20', text: 'text-purple-300', border: 'border-purple-500/40' },
+  { id: 'indigo', label: 'Indigo / Sales', bg: 'bg-indigo-500/20', text: 'text-indigo-300', border: 'border-indigo-500/40' },
+  { id: 'blue', label: 'Blue / Operations', bg: 'bg-blue-500/20', text: 'text-blue-300', border: 'border-blue-500/40' },
+  { id: 'orange', label: 'Orange / Manufacturing', bg: 'bg-orange-500/20', text: 'text-orange-300', border: 'border-orange-500/40' },
 ];
 
 const CHECK_OPTIONS = [
@@ -100,14 +104,16 @@ const PRESET_TEMPLATES = [
 export default function HiringRolesPage() {
   const navigate = useNavigate();
   const [roles, setRoles] = useState([]);
+  const [sectors, setSectors] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedSector, setSelectedSector] = useState('All Sectors');
   const [selectedUrgency, setSelectedUrgency] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showModal, setShowModal] = useState(false);
 
-  // Form state
+  // Role Form Modal State
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [editingRoleId, setEditingRoleId] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
     sector: 'Technology & IT',
@@ -121,6 +127,27 @@ export default function HiringRolesPage() {
     targetJoiningDate: '',
     description: '',
   });
+
+  // Sector Management Modal State
+  const [showSectorModal, setShowSectorModal] = useState(false);
+  const [editingSector, setEditingSector] = useState(null);
+  const [sectorFormData, setSectorFormData] = useState({
+    name: '',
+    color: 'cyan',
+    description: '',
+    defaultChecks: ['education', 'employment', 'identity'],
+  });
+
+  const fetchSectors = async () => {
+    try {
+      const res = await sectorAPI.list();
+      if (res.data.success) {
+        setSectors(res.data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to load sectors', err);
+    }
+  };
 
   const fetchRolesAndSummary = async () => {
     try {
@@ -148,10 +175,117 @@ export default function HiringRolesPage() {
   };
 
   useEffect(() => {
+    fetchSectors();
+  }, []);
+
+  useEffect(() => {
     fetchRolesAndSummary();
   }, [selectedSector, selectedUrgency, searchQuery]);
 
-  const handleCreateRole = async (e) => {
+  // ─── Sector Creation & Editing Handlers ─────────────────────────
+  const handleOpenSectorModal = () => {
+    setEditingSector(null);
+    setSectorFormData({
+      name: '',
+      color: 'cyan',
+      description: '',
+      defaultChecks: ['education', 'employment', 'identity'],
+    });
+    setShowSectorModal(true);
+  };
+
+  const handleEditSector = (sec) => {
+    setEditingSector(sec);
+    setSectorFormData({
+      name: sec.name,
+      color: sec.color || 'cyan',
+      description: sec.description || '',
+      defaultChecks: sec.defaultChecks || ['education', 'employment', 'identity'],
+    });
+  };
+
+  const handleSaveSector = async (e) => {
+    e.preventDefault();
+    if (!sectorFormData.name.trim()) {
+      toast.error('Sector name cannot be empty');
+      return;
+    }
+
+    try {
+      if (editingSector) {
+        await sectorAPI.update(editingSector._id, sectorFormData);
+        toast.success(`Sector updated to "${sectorFormData.name}" and cascaded across records!`);
+      } else {
+        await sectorAPI.create(sectorFormData);
+        toast.success(`Custom sector "${sectorFormData.name}" created!`);
+      }
+      setEditingSector(null);
+      setSectorFormData({
+        name: '',
+        color: 'cyan',
+        description: '',
+        defaultChecks: ['education', 'employment', 'identity'],
+      });
+      await fetchSectors();
+      await fetchRolesAndSummary();
+    } catch (err) {
+      toast.error(err.response?.data?.error?.message || 'Failed to save sector');
+    }
+  };
+
+  const handleDeleteSector = async (sec) => {
+    if (!window.confirm(`Are you sure you want to delete sector "${sec.name}"?`)) return;
+
+    try {
+      await sectorAPI.delete(sec._id);
+      toast.success(`Sector "${sec.name}" deleted.`);
+      if (editingSector?._id === sec._id) setEditingSector(null);
+      await fetchSectors();
+      await fetchRolesAndSummary();
+    } catch (err) {
+      toast.error(err.response?.data?.error?.message || 'Failed to delete sector');
+    }
+  };
+
+  // ─── Role Creation & Editing Handlers ───────────────────────────
+  const handleOpenNewRoleModal = () => {
+    setEditingRoleId(null);
+    const defaultSector = sectors[0]?.name || 'Technology & IT';
+    setFormData({
+      title: '',
+      sector: defaultSector,
+      department: '',
+      urgency: 'urgent',
+      openPositions: 2,
+      experienceLevel: 'mid',
+      locationType: 'hybrid',
+      location: '',
+      requiredChecks: ['education', 'employment', 'identity'],
+      targetJoiningDate: '',
+      description: '',
+    });
+    setShowRoleModal(true);
+  };
+
+  const handleOpenEditRoleModal = (role) => {
+    setEditingRoleId(role._id);
+    setFormData({
+      title: role.title,
+      sector: role.sector || 'Technology & IT',
+      department: role.department || '',
+      urgency: role.urgency || 'medium',
+      openPositions: role.openPositions || 1,
+      experienceLevel: role.experienceLevel || 'mid',
+      locationType: role.locationType || 'hybrid',
+      location: role.location || '',
+      requiredChecks: role.requiredChecks || ['education', 'employment', 'identity'],
+      targetJoiningDate: role.targetJoiningDate ? new Date(role.targetJoiningDate).toISOString().split('T')[0] : '',
+      description: role.description || '',
+    });
+    setShowRoleModal(true);
+  };
+
+  const handleSaveRole = async (e) => {
     e.preventDefault();
     if (!formData.title || !formData.sector) {
       toast.error('Please enter Role Title and Sector');
@@ -159,32 +293,34 @@ export default function HiringRolesPage() {
     }
 
     try {
-      const res = await roleAPI.create(formData);
-      if (res.data.success) {
+      if (editingRoleId) {
+        await roleAPI.update(editingRoleId, formData);
+        toast.success(`Role "${formData.title}" updated successfully!`);
+      } else {
+        await roleAPI.create(formData);
         toast.success(`Hiring role "${formData.title}" created successfully!`);
-        setShowModal(false);
-        fetchRolesAndSummary();
       }
+      setShowRoleModal(false);
+      fetchRolesAndSummary();
     } catch (err) {
-      toast.error(err.response?.data?.error?.message || 'Error creating role');
+      toast.error(err.response?.data?.error?.message || 'Error saving role');
     }
   };
 
   const applyTemplate = (tpl) => {
+    setEditingRoleId(null);
     setFormData({
       ...tpl,
       targetJoiningDate: new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0],
     });
-    setShowModal(true);
+    setShowRoleModal(true);
   };
 
-  const getSectorColor = (sector) => {
-    if (sector?.includes('Tech')) return 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30';
-    if (sector?.includes('Finan') || sector?.includes('BFSI')) return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
-    if (sector?.includes('Health')) return 'bg-rose-500/10 text-rose-400 border-rose-500/30';
-    if (sector?.includes('Logis')) return 'bg-amber-500/10 text-amber-400 border-amber-500/30';
-    if (sector?.includes('Sales')) return 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30';
-    return 'bg-purple-500/10 text-purple-400 border-purple-500/30';
+  const getSectorStyle = (sectorName) => {
+    const sec = sectors.find((s) => s.name === sectorName);
+    const col = sec?.color || 'cyan';
+    const opt = COLOR_OPTIONS.find((c) => c.id === col) || COLOR_OPTIONS[0];
+    return `${opt.bg} ${opt.text} ${opt.border}`;
   };
 
   const getUrgencyBadge = (urgency) => {
@@ -222,36 +358,32 @@ export default function HiringRolesPage() {
               <Briefcase size={13} />
               HR Department Workspace
             </span>
-            <span className="text-xs text-slate-400">Multi-Sector Hiring Engine</span>
+            <span className="text-xs text-slate-400">Custom Sector & Requisition Engine</span>
           </div>
           <h1 className="text-2xl font-bold text-white mt-1">Hiring Roles & Sector Requisitions</h1>
           <p className="text-sm text-slate-400">
-            Manage roles across company sectors, configure mandatory background checks, and prioritize urgent hiring drives.
+            Create, edit, and organize sectors for your organization, configure mandatory checks, and manage urgent roles.
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            setFormData({
-              title: '',
-              sector: 'Technology & IT',
-              department: '',
-              urgency: 'urgent',
-              openPositions: 2,
-              experienceLevel: 'mid',
-              locationType: 'hybrid',
-              location: '',
-              requiredChecks: ['education', 'employment', 'identity'],
-              targetJoiningDate: '',
-              description: '',
-            });
-            setShowModal(true);
-          }}
-          className="btn btn-primary flex items-center gap-2 shadow-lg shadow-primary-500/20"
-        >
-          <Plus size={18} />
-          Create Hiring Role
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleOpenSectorModal}
+            className="btn btn-secondary flex items-center gap-2 text-xs py-2 px-3.5"
+            title="Add, rename, or customize company hiring sectors"
+          >
+            <Settings2 size={16} />
+            Manage Sectors ({sectors.length})
+          </button>
+
+          <button
+            onClick={handleOpenNewRoleModal}
+            className="btn btn-primary flex items-center gap-2 shadow-lg shadow-primary-500/20 text-xs py-2 px-3.5"
+          >
+            <Plus size={16} />
+            Create Hiring Role
+          </button>
+        </div>
       </div>
 
       {/* KPI Overview Cards */}
@@ -326,7 +458,7 @@ export default function HiringRolesPage() {
               className="text-left p-3 rounded-lg border border-slate-700 bg-slate-900/60 hover:bg-slate-800/80 hover:border-primary-500/40 transition group"
             >
               <div className="flex items-center justify-between">
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium border ${getSectorColor(tpl.sector)}`}>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium border ${getSectorStyle(tpl.sector)}`}>
                   {tpl.sector.split('&')[0]}
                 </span>
                 {tpl.urgency === 'urgent' && (
@@ -341,30 +473,53 @@ export default function HiringRolesPage() {
               <div className="flex items-center gap-2 mt-2 text-[11px] text-slate-400">
                 <span>{tpl.openPositions} Openings</span>
                 <span>•</span>
-                <span>{tpl.requiredChecks.length} Checks Required</span>
+                <span>{tpl.requiredChecks.length} Checks</span>
               </div>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Filters & Search */}
+      {/* Filters & Dynamic Sector Tabs */}
       <div className="card p-4 space-y-4">
-        {/* Sector Tabs */}
+        {/* Sector Tabs (dynamically populated from company's sectors) */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
-          {SECTORS.map((sec) => (
+          <button
+            onClick={() => setSelectedSector('All Sectors')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition ${
+              selectedSector === 'All Sectors'
+                ? 'bg-primary-500 text-white shadow-md shadow-primary-500/30'
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
+            All Sectors ({sectors.length})
+          </button>
+
+          {sectors.map((sec) => (
             <button
-              key={sec}
-              onClick={() => setSelectedSector(sec)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition ${
-                selectedSector === sec
+              key={sec._id || sec.name}
+              onClick={() => setSelectedSector(sec.name)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition flex items-center gap-1.5 ${
+                selectedSector === sec.name
                   ? 'bg-primary-500 text-white shadow-md shadow-primary-500/30'
                   : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
               }`}
             >
-              {sec}
+              <span>{sec.name}</span>
+              {sec.roleCount > 0 && (
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-900/60 font-semibold">
+                  {sec.roleCount}
+                </span>
+              )}
             </button>
           ))}
+
+          <button
+            onClick={handleOpenSectorModal}
+            className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800/60 text-primary-400 hover:text-white hover:bg-primary-600 transition flex items-center gap-1 whitespace-nowrap border border-primary-500/30"
+          >
+            <Plus size={13} /> New Sector
+          </button>
         </div>
 
         {/* Search & Urgency Filters */}
@@ -376,7 +531,8 @@ export default function HiringRolesPage() {
               placeholder="Search roles, sectors, departments..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="input pl-9 text-xs w-full"
+              className="form-input text-xs w-full"
+              style={{ paddingLeft: '34px', paddingBottom: '8px', paddingTop: '8px' }}
             />
           </div>
 
@@ -387,7 +543,8 @@ export default function HiringRolesPage() {
             <select
               value={selectedUrgency}
               onChange={(e) => setSelectedUrgency(e.target.value)}
-              className="input text-xs py-1.5"
+              className="form-select text-xs py-1.5"
+              style={{ width: 'auto' }}
             >
               <option value="all">All Hiring Priorities</option>
               <option value="urgent">🚨 Urgent 24h Turnaround Only</option>
@@ -430,12 +587,21 @@ export default function HiringRolesPage() {
                 }`}
               >
                 <div>
-                  {/* Top Badges */}
+                  {/* Top Badges & Edit Button */}
                   <div className="flex items-start justify-between gap-2 mb-3">
-                    <span className={`px-2.5 py-1 rounded-md text-xs font-semibold border ${getSectorColor(role.sector)}`}>
+                    <span className={`px-2.5 py-1 rounded-md text-xs font-semibold border ${getSectorStyle(role.sector)}`}>
                       {role.sector}
                     </span>
-                    {getUrgencyBadge(role.urgency)}
+                    <div className="flex items-center gap-1.5">
+                      {getUrgencyBadge(role.urgency)}
+                      <button
+                        onClick={() => handleOpenEditRoleModal(role)}
+                        className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                        title="Edit this role"
+                      >
+                        <Edit2 size={13} />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Title & Department */}
@@ -529,7 +695,7 @@ export default function HiringRolesPage() {
                     className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 flex-1 justify-center"
                   >
                     <Users size={13} />
-                    View Pipeline ({role.totalCandidates || 0})
+                    Pipeline ({role.totalCandidates || 0})
                   </button>
 
                   <button
@@ -548,13 +714,13 @@ export default function HiringRolesPage() {
         </div>
       )}
 
-      {/* Create / Edit Role Modal */}
-      {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+      {/* ─── CREATE / EDIT ROLE MODAL ──────────────────────────────── */}
+      {showRoleModal && (
+        <div className="modal-overlay" onClick={() => setShowRoleModal(false)}>
           <div
             className="modal"
             style={{
-              maxWidth: '720px',
+              maxWidth: '740px',
               width: '95%',
               maxHeight: '90vh',
               display: 'flex',
@@ -564,17 +730,17 @@ export default function HiringRolesPage() {
           >
             <div className="modal-header">
               <div>
-                <h3>Create Multi-Sector Hiring Role</h3>
+                <h3>{editingRoleId ? 'Edit Hiring Role Requisition' : 'Create Multi-Sector Hiring Role'}</h3>
                 <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
                   Configure role sector, urgency level, and standard background verification package.
                 </p>
               </div>
-              <button className="modal-close" onClick={() => setShowModal(false)}>
+              <button className="modal-close" onClick={() => setShowRoleModal(false)}>
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleCreateRole} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+            <form onSubmit={handleSaveRole} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
               <div className="modal-body" style={{ overflowY: 'auto', flex: 1, padding: '24px' }}>
                 <div className="form-group">
                   <label className="form-label">Role Title *</label>
@@ -590,15 +756,23 @@ export default function HiringRolesPage() {
 
                 <div className="grid-2">
                   <div className="form-group">
-                    <label className="form-label">Sector / Industry *</label>
+                    <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Sector / Industry *</span>
+                      <span
+                        onClick={handleOpenSectorModal}
+                        style={{ fontSize: '11px', color: '#3b82f6', cursor: 'pointer' }}
+                      >
+                        + Manage Sectors
+                      </span>
+                    </label>
                     <select
                       value={formData.sector}
                       onChange={(e) => setFormData({ ...formData, sector: e.target.value })}
                       className="form-select"
                     >
-                      {SECTORS.filter((s) => s !== 'All Sectors').map((s) => (
-                        <option key={s} value={s}>
-                          {s}
+                      {sectors.map((s) => (
+                        <option key={s._id || s.name} value={s.name}>
+                          {s.name}
                         </option>
                       ))}
                     </select>
@@ -755,17 +929,204 @@ export default function HiringRolesPage() {
               <div className="modal-footer">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => setShowRoleModal(false)}
                   className="btn btn-secondary"
                 >
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <CheckCircle2 size={16} />
-                  Save & Publish Hiring Role
+                  {editingRoleId ? 'Update Hiring Role' : 'Save & Publish Hiring Role'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MANAGE & EDIT SECTORS MODAL ───────────────────────────── */}
+      {showSectorModal && (
+        <div className="modal-overlay" onClick={() => setShowSectorModal(false)}>
+          <div
+            className="modal"
+            style={{
+              maxWidth: '740px',
+              width: '95%',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div>
+                <h3>Manage Company Hiring Sectors</h3>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  Create, rename, or customize sectors. Renaming cascades across all associated job roles and candidates.
+                </p>
+              </div>
+              <button className="modal-close" onClick={() => setShowSectorModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body" style={{ overflowY: 'auto', flex: 1, padding: '24px' }}>
+              {/* Form to Add / Edit Sector */}
+              <form
+                onSubmit={handleSaveSector}
+                style={{
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: '14px',
+                  padding: '16px 20px',
+                  marginBottom: '24px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {editingSector ? `Edit Sector: "${editingSector.name}"` : 'Add New Custom Sector'}
+                  </h4>
+                  {editingSector && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingSector(null);
+                        setSectorFormData({
+                          name: '',
+                          color: 'cyan',
+                          description: '',
+                          defaultChecks: ['education', 'employment', 'identity'],
+                        });
+                      }}
+                      style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
+                    >
+                      Cancel Editing
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid-2">
+                  <div className="form-group" style={{ marginBottom: '12px' }}>
+                    <label className="form-label">Sector Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. EdTech & Academics / Automotive & EV"
+                      value={sectorFormData.name}
+                      onChange={(e) => setSectorFormData({ ...sectorFormData, name: e.target.value })}
+                      className="form-input"
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: '12px' }}>
+                    <label className="form-label">Sector Badge Color Theme</label>
+                    <select
+                      value={sectorFormData.color}
+                      onChange={(e) => setSectorFormData({ ...sectorFormData, color: e.target.value })}
+                      className="form-select"
+                    >
+                      {COLOR_OPTIONS.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: '12px' }}>
+                  <label className="form-label">Sector Description (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="Brief description of the industry or department..."
+                    value={sectorFormData.description}
+                    onChange={(e) => setSectorFormData({ ...sectorFormData, description: e.target.value })}
+                    className="form-input"
+                  />
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                  <button type="submit" className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Check size={14} />
+                    {editingSector ? 'Save Sector Changes' : 'Create Sector'}
+                  </button>
+                </div>
+              </form>
+
+              {/* Existing Sectors Table / List */}
+              <h4 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px' }}>
+                Configured Sectors for Your Company ({sectors.length})
+              </h4>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {sectors.map((sec) => (
+                  <div
+                    key={sec._id || sec.name}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '12px 16px',
+                      background: editingSector?._id === sec._id ? 'rgba(59, 130, 246, 0.1)' : 'var(--bg-elevated)',
+                      border: editingSector?._id === sec._id ? '1px solid #3b82f6' : '1px solid var(--border-default)',
+                      borderRadius: '10px',
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className={`px-2 py-0.5 rounded text-xs font-semibold border ${getSectorStyle(sec.name)}`}>
+                          {sec.name}
+                        </span>
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                          {sec.roleCount || 0} active roles • {sec.candidateCount || 0} candidates
+                        </span>
+                      </div>
+                      {sec.description && (
+                        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                          {sec.description}
+                        </p>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleEditSector(sec)}
+                        className="btn btn-secondary btn-sm"
+                        style={{ padding: '4px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        title="Edit sector name or color"
+                      >
+                        <Edit2 size={12} /> Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSector(sec)}
+                        className="btn btn-sm"
+                        style={{
+                          padding: '4px 8px',
+                          fontSize: '11px',
+                          background: 'rgba(239, 68, 68, 0.1)',
+                          color: '#f87171',
+                          border: '1px solid rgba(239, 68, 68, 0.2)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                        title="Delete sector"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button type="button" onClick={() => setShowSectorModal(false)} className="btn btn-primary">
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}
