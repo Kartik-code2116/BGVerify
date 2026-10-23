@@ -32,6 +32,7 @@ const createCandidateSchema = z.object({
         institution: z.string(),
         degree: z.string(),
         fieldOfStudy: z.string().optional(),
+        rollNumber: z.string().optional(),
         startYear: z.number().optional(),
         endYear: z.number().optional(),
         grade: z.string().optional(),

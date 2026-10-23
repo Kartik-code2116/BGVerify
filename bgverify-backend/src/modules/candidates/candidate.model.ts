@@ -23,6 +23,7 @@ export interface ICandidate extends Document {
     institution: string;
     degree: string;
     fieldOfStudy?: string;
+    rollNumber?: string;
     startYear?: number;
     endYear?: number;
     grade?: string;
@@ -119,6 +120,7 @@ const candidateSchema = new Schema<ICandidate>(
         institution: { type: String, required: true },
         degree: { type: String, required: true },
         fieldOfStudy: String,
+        rollNumber: String,
         startYear: Number,
         endYear: Number,
         grade: String,
