@@ -206,7 +206,7 @@ const verificationSchema = new Schema<IVerification>(
     timestamps: true,
     toJSON: {
       virtuals: true,
-      transform: (_doc, ret) => {
+      transform: (_doc, ret: any) => {
         delete ret.__v;
         return ret;
       },

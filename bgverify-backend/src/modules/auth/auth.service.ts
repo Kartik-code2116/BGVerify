@@ -24,7 +24,7 @@ class AuthService {
         organizationId: user.organizationId,
       },
       config.jwt.secret,
-      { expiresIn: config.jwt.expiresIn }
+      { expiresIn: config.jwt.expiresIn as any }
     );
   }
 
@@ -35,7 +35,7 @@ class AuthService {
     return jwt.sign(
       { id: user._id },
       config.jwt.refreshSecret,
-      { expiresIn: config.jwt.refreshExpiresIn }
+      { expiresIn: config.jwt.refreshExpiresIn as any }
     );
   }
 

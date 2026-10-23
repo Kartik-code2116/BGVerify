@@ -63,7 +63,7 @@ const walletSchema = new Schema<IWallet>(
     timestamps: true,
     toJSON: {
       virtuals: true,
-      transform: (_doc, ret) => {
+      transform: (_doc, ret: any) => {
         delete ret.__v;
         return ret;
       },
@@ -123,7 +123,7 @@ const walletTransactionSchema = new Schema<IWalletTransaction>(
   {
     timestamps: true,
     toJSON: {
-      transform: (_doc, ret) => {
+      transform: (_doc, ret: any) => {
         delete ret.__v;
         return ret;
       },
