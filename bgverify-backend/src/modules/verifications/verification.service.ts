@@ -293,37 +293,49 @@ class VerificationService {
   }
 
   /**
-   * Update verification (admin or reviewer)
+   * Update verification (admin, org owner, or HR reviewer)
    */
   async update(
     verificationId: string,
     input: UpdateVerificationInput,
     userId: string,
-    userRole: string
+    userRole: string,
+    userOrgId?: string | mongoose.Types.ObjectId
   ) {
     const verification = await Verification.findById(verificationId);
     if (!verification) {
       throw new NotFoundError('Verification not found');
     }
 
-    // Only admin and authorized users can update
-    if (userRole !== 'admin' && userRole !== 'hr_admin') {
+    // Allow platform admin, company owner, and HR team members
+    const isAuthorized = ['admin', 'org_owner', 'hr_admin', 'hr_executive'].includes(userRole);
+    if (!isAuthorized) {
       throw new ForbiddenError('You do not have permission to update this verification');
+    }
+
+    // Company users can only update verifications belonging to their organization
+    if (userRole !== 'admin' && userOrgId && String(verification.organizationId) !== String(userOrgId)) {
+      throw new ForbiddenError('You can only review verifications belonging to your organization');
     }
 
     if (input.status) verification.status = input.status;
     if (input.result) verification.result = input.result;
-    if (input.reviewerNotes) {
+    if (input.reviewerNotes !== undefined) {
       verification.reviewerNotes = input.reviewerNotes;
-      verification.reviewedBy = new mongoose.Types.ObjectId(userId);
-      verification.reviewedAt = new Date();
     }
+    verification.reviewedBy = new mongoose.Types.ObjectId(userId);
+    verification.reviewedAt = new Date();
 
     if (input.status === 'completed') {
       verification.completedAt = new Date();
     }
 
     await verification.save();
+
+    await verification.populate([
+      { path: 'candidateId', select: 'firstName lastName email phone targetRole sector' },
+      { path: 'reviewedBy', select: 'firstName lastName email role' },
+    ]);
 
     // Audit log
     await AuditLog.create({

@@ -57,7 +57,8 @@ class VerificationController {
         req.params.id,
         req.body,
         req.user!.id,
-        req.user!.role
+        req.user!.role,
+        req.user!.organizationId
       );
       res.status(200).json({
         success: true,

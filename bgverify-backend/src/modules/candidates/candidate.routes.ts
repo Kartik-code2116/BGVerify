@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { Candidate } from './candidate.model';
 import { User } from '../users/user.model';
 import { JobRole } from '../roles/role.model';
+import { Verification } from '../verifications/verification.model';
 import { NotFoundError } from '../../utils/errors';
 import { resumeParserService } from './resumeParser.service';
 
@@ -374,7 +375,7 @@ router.patch(
   }
 );
 
-// PATCH /api/v1/candidates/:id — HR updates candidate info (e.g. Sector, Role, Urgency)
+// PATCH /api/v1/candidates/:id — HR updates candidate info (e.g. Personal, Academic, Employment, Role)
 router.patch(
   '/:id',
   authorize('admin', 'org_owner', 'hr_admin', 'hr_executive'),
@@ -395,6 +396,48 @@ router.patch(
         success: true,
         message: 'Candidate updated successfully',
         data: candidate,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// DELETE /api/v1/candidates/:id — HR deletes candidate profile and associated verifications
+router.delete(
+  '/:id',
+  authorize('admin', 'org_owner', 'hr_admin', 'hr_executive'),
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const query: any = { _id: req.params.id };
+      if (req.user!.role !== 'admin') {
+        query.organizationId = req.user!.organizationId;
+      }
+
+      const candidate = await Candidate.findOne(query);
+      if (!candidate) throw new NotFoundError('Candidate not found');
+
+      // If candidate was marked as hired, decrement filled count on role
+      if (candidate.hiringStage === 'hired') {
+        if (candidate.jobRoleId) {
+          await JobRole.findByIdAndUpdate(candidate.jobRoleId, { $inc: { filledPositions: -1 } });
+        } else if (candidate.targetRole) {
+          await JobRole.findOneAndUpdate(
+            { organizationId: candidate.organizationId, title: candidate.targetRole },
+            { $inc: { filledPositions: -1 } }
+          );
+        }
+      }
+
+      // Cleanup associated verifications for this candidate
+      await Verification.deleteMany({ candidateId: candidate._id });
+
+      // Delete the candidate document
+      await Candidate.findByIdAndDelete(candidate._id);
+
+      res.status(200).json({
+        success: true,
+        message: `Candidate ${candidate.firstName} ${candidate.lastName} deleted successfully`,
       });
     } catch (error) {
       next(error);

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { verificationAPI } from '../services/api';
 import {
   X,
@@ -14,13 +14,26 @@ import {
   User,
   Hash,
   ArrowRight,
+  Clock,
+  Save,
+  MessageSquare,
+  Sparkles,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-export default function EvidenceViewerModal({ verification, isOpen, onClose, onUpdated }) {
-  const [activeTab, setActiveTab] = useState('summary'); // 'summary' | 'bot' | 'evidence' | 'review'
+export default function EvidenceViewerModal({ verification, isOpen, onClose, onUpdated, initialTab = 'summary' }) {
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [reviewerNotes, setReviewerNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (verification) {
+      setReviewerNotes(verification.reviewerNotes || '');
+      if (initialTab) {
+        setActiveTab(initialTab);
+      }
+    }
+  }, [verification, initialTab, isOpen]);
 
   if (!isOpen || !verification) return null;
 
@@ -41,17 +54,32 @@ export default function EvidenceViewerModal({ verification, isOpen, onClose, onU
   const handleReviewAction = async (newStatus, newResult) => {
     setSubmitting(true);
     try {
-      await verificationAPI.update(verification._id, {
-        status: newStatus,
-        result: newResult,
-        reviewerNotes: reviewerNotes || `Reviewed and updated to ${newStatus}`,
-      });
-      toast.success(`Verification marked as ${newStatus}`);
-      if (onUpdated) onUpdated();
+      const payload = {
+        reviewerNotes: reviewerNotes !== undefined ? reviewerNotes : '',
+      };
+      if (newStatus) payload.status = newStatus;
+      if (newResult) payload.result = newResult;
+
+      const res = await verificationAPI.update(verification._id, payload);
+
+      let msg = 'Review saved successfully!';
+      if (newStatus === 'completed' && newResult === 'match') {
+        msg = 'Verification approved as Match!';
+      } else if (newStatus === 'completed' && newResult === 'no_match') {
+        msg = 'Discrepancy recorded and check flagged!';
+      } else if (newStatus === 'completed' && newResult === 'partial_match') {
+        msg = 'Verification marked as Partial Match!';
+      } else if (newStatus === 'manual_review') {
+        msg = 'Assigned to Manual Review Queue!';
+      }
+
+      toast.success(msg);
+      if (onUpdated) onUpdated(res.data?.data || verification);
       onClose();
     } catch (err) {
-      console.error(err);
-      toast.error('Failed to update verification');
+      console.error('Review update error:', err);
+      const errMsg = err.response?.data?.error?.message || 'Failed to update verification';
+      toast.error(errMsg);
     } finally {
       setSubmitting(false);
     }
@@ -107,7 +135,11 @@ export default function EvidenceViewerModal({ verification, isOpen, onClose, onU
           {[
             { id: 'summary', label: 'AI Match Assessment' },
             { id: 'bot', label: 'Playwright Bot Trail' },
-            { id: 'review', label: 'Manual Review & Notes' },
+            {
+              id: 'review',
+              label: 'Manual Review & Notes',
+              badge: verification.status === 'manual_review' ? 'Action Required' : null,
+            },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -121,9 +153,27 @@ export default function EvidenceViewerModal({ verification, isOpen, onClose, onU
                 fontWeight: activeTab === tab.id ? 600 : 500,
                 fontSize: '13px',
                 cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
               }}
             >
-              {tab.label}
+              <span>{tab.label}</span>
+              {tab.badge && (
+                <span
+                  style={{
+                    fontSize: '10px',
+                    padding: '2px 7px',
+                    borderRadius: '10px',
+                    background: 'rgba(245, 158, 11, 0.2)',
+                    color: '#fbbf24',
+                    border: '1px solid rgba(245, 158, 11, 0.4)',
+                    fontWeight: 700,
+                  }}
+                >
+                  {tab.badge}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -271,24 +321,109 @@ export default function EvidenceViewerModal({ verification, isOpen, onClose, onU
 
           {activeTab === 'review' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Previous Review History */}
+              {verification.reviewedAt && (
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    background: 'rgba(59, 130, 246, 0.08)',
+                    border: '1px solid rgba(59, 130, 246, 0.25)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    fontSize: '12px',
+                    color: 'var(--text-secondary)',
+                  }}
+                >
+                  <Clock size={16} style={{ color: '#60a5fa', flexShrink: 0 }} />
+                  <div>
+                    Last updated on <strong>{new Date(verification.reviewedAt).toLocaleString()}</strong>
+                    {verification.reviewedBy?.firstName && (
+                      <span>
+                        {' '}
+                        by{' '}
+                        <strong>
+                          {verification.reviewedBy.firstName} {verification.reviewedBy.lastName}
+                        </strong>
+                      </span>
+                    )}
+                    {' — Current: '}
+                    <span style={{ textTransform: 'uppercase', fontWeight: 700, color: '#38bdf8' }}>
+                      {verification.status?.replace('_', ' ')} ({verification.result})
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Review Notes Area */}
               <div className="form-group">
-                <label className="form-label">Reviewer Notes / Justification</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label className="form-label" style={{ marginBottom: 0 }}>Reviewer Notes & Justification</label>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    Saved to tamper-evident audit ledger
+                  </span>
+                </div>
                 <textarea
                   className="form-input"
                   rows={4}
-                  placeholder="Enter notes explaining why you are approving or flagging this verification..."
+                  placeholder="Enter detailed reviewer justification, secondary evidence verification notes, or reason for decision..."
                   value={reviewerNotes}
                   onChange={(e) => setReviewerNotes(e.target.value)}
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: '12px' }}>
+              {/* Quick Template Chips */}
+              <div>
+                <div
+                  style={{
+                    fontSize: '11px',
+                    color: 'var(--text-muted)',
+                    marginBottom: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                  }}
+                >
+                  <Sparkles size={12} className="text-amber-400" />
+                  <span>Insert Quick Rationale Template:</span>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {[
+                    'Verified via employer registry records.',
+                    'Degree certificate and roll number confirmed.',
+                    'Minor typo in tenure dates; identity confirmed.',
+                    'Discrepancy confirmed: Candidate tenure inflated.',
+                    'Pending candidate response & secondary payslips.',
+                  ].map((snippet) => (
+                    <button
+                      key={snippet}
+                      type="button"
+                      onClick={() => setReviewerNotes((prev) => (prev ? `${prev} ${snippet}` : snippet))}
+                      className="btn btn-ghost btn-xs"
+                      style={{
+                        fontSize: '11px',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        background: 'var(--bg-elevated)',
+                        border: '1px solid var(--border-subtle)',
+                        color: 'var(--text-secondary)',
+                      }}
+                    >
+                      + {snippet.slice(0, 32)}...
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px', marginTop: '6px' }}>
                 <button
                   type="button"
                   className="btn btn-success"
                   onClick={() => handleReviewAction('completed', 'match')}
                   disabled={submitting}
-                  style={{ flex: 1 }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px' }}
                 >
                   <CheckCircle2 size={16} />
                   Approve as Match
@@ -298,10 +433,60 @@ export default function EvidenceViewerModal({ verification, isOpen, onClose, onU
                   className="btn btn-danger"
                   onClick={() => handleReviewAction('completed', 'no_match')}
                   disabled={submitting}
-                  style={{ flex: 1 }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px' }}
                 >
                   <XCircle size={16} />
-                  Reject / Mark Discrepancy
+                  Reject / Discrepancy
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => handleReviewAction('completed', 'partial_match')}
+                  disabled={submitting}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '10px',
+                    borderColor: 'rgba(245, 158, 11, 0.5)',
+                    color: '#fbbf24',
+                  }}
+                >
+                  <AlertTriangle size={16} />
+                  Partial Match
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => handleReviewAction('manual_review', 'needs_review')}
+                  disabled={submitting}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '10px',
+                    borderColor: 'rgba(59, 130, 246, 0.5)',
+                    color: '#60a5fa',
+                  }}
+                >
+                  <HelpCircle size={16} />
+                  Needs Further Review
+                </button>
+              </div>
+
+              {/* Save Notes Only without status change */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '10px', borderTop: '1px solid var(--border-subtle)' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => handleReviewAction(undefined, undefined)}
+                  disabled={submitting}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Save size={14} />
+                  Save Notes Only (Keep Status)
                 </button>
               </div>
             </div>

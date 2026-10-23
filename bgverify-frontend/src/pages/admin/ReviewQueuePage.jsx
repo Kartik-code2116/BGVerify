@@ -154,6 +154,7 @@ export default function ReviewQueuePage() {
           isOpen={!!selectedVerification}
           onClose={() => setSelectedVerification(null)}
           onUpdated={loadQueue}
+          initialTab="review"
         />
       )}
     </div>

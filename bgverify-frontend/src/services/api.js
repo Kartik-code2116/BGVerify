@@ -65,6 +65,7 @@ export const candidateAPI = {
   parseResume: (data) => api.post('/candidates/parse-resume', data),
   updateHiringStage: (id, stage, notes) => api.patch(`/candidates/${id}/hiring-stage`, { stage, notes }),
   update: (id, data) => api.patch(`/candidates/${id}`, data),
+  delete: (id) => api.delete(`/candidates/${id}`),
 };
 
 // ─── Sectors Management Service ──────────────────────────

@@ -32,6 +32,8 @@ import {
   ChevronRight,
   X,
   Edit2,
+  Trash2,
+  Save,
 } from 'lucide-react';
 import NewVerificationModal from '../../components/NewVerificationModal';
 import toast from 'react-hot-toast';
@@ -62,11 +64,32 @@ export default function CandidatesPage() {
 
   // Edit Candidate Modal State
   const [editingCandidate, setEditingCandidate] = useState(null);
+  const [editActiveTab, setEditActiveTab] = useState('role');
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [editFormData, setEditFormData] = useState({
     targetRole: '',
     sector: '',
     urgency: 'medium',
     hiringStage: 'applied',
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    dateOfBirth: '',
+    aadhaarNumber: '',
+    panNumber: '',
+    institution: '',
+    degree: '',
+    fieldOfStudy: '',
+    rollNumber: '',
+    endYear: '',
+    grade: '',
+    company: '',
+    designation: '',
+    employeeId: '',
+    startDate: '',
+    endDate: '',
   });
 
   // Filters
@@ -171,23 +194,102 @@ export default function CandidatesPage() {
 
   const handleOpenEditCandidate = (c) => {
     setEditingCandidate(c);
+    setConfirmDeleteId(null);
+    setEditActiveTab('role');
     setEditFormData({
+      // Role & Requisition
       targetRole: c.targetRole || '',
       sector: c.sector || (sectors[0]?.name || 'Technology & IT'),
       urgency: c.urgency || 'medium',
       hiringStage: c.hiringStage || 'applied',
+      // Personal Details
+      firstName: c.firstName || '',
+      lastName: c.lastName || '',
+      email: c.email || '',
+      phone: c.phone || '',
+      dateOfBirth: c.dateOfBirth ? new Date(c.dateOfBirth).toISOString().split('T')[0] : '',
+      aadhaarNumber: c.aadhaarNumber || '',
+      panNumber: c.panNumber || '',
+      // Academic / Student Info
+      institution: c.education?.[0]?.institution || '',
+      degree: c.education?.[0]?.degree || '',
+      fieldOfStudy: c.education?.[0]?.fieldOfStudy || '',
+      rollNumber: c.education?.[0]?.rollNumber || '',
+      endYear: c.education?.[0]?.endYear || '',
+      grade: c.education?.[0]?.grade || '',
+      // Employment Info
+      company: c.employment?.[0]?.company || '',
+      designation: c.employment?.[0]?.designation || '',
+      employeeId: c.employment?.[0]?.employeeId || '',
+      startDate: c.employment?.[0]?.startDate || '',
+      endDate: c.employment?.[0]?.endDate || '',
     });
   };
 
   const handleSaveCandidateEdit = async (e) => {
     e.preventDefault();
     try {
-      await candidateAPI.update(editingCandidate._id, editFormData);
-      toast.success(`Updated role & sector assignment for ${editingCandidate.firstName} ${editingCandidate.lastName}!`);
+      const payload = {
+        firstName: editFormData.firstName,
+        lastName: editFormData.lastName,
+        email: editFormData.email,
+        phone: editFormData.phone || undefined,
+        dateOfBirth: editFormData.dateOfBirth || undefined,
+        aadhaarNumber: editFormData.aadhaarNumber || undefined,
+        panNumber: editFormData.panNumber || undefined,
+        targetRole: editFormData.targetRole,
+        sector: editFormData.sector,
+        urgency: editFormData.urgency,
+        hiringStage: editFormData.hiringStage,
+        education: editFormData.institution
+          ? [
+              {
+                institution: editFormData.institution,
+                degree: editFormData.degree || 'Bachelor of Technology',
+                fieldOfStudy: editFormData.fieldOfStudy || undefined,
+                rollNumber: editFormData.rollNumber || undefined,
+                endYear: editFormData.endYear ? parseInt(editFormData.endYear) : undefined,
+                grade: editFormData.grade || undefined,
+              },
+            ]
+          : [],
+        employment: editFormData.company
+          ? [
+              {
+                company: editFormData.company,
+                designation: editFormData.designation || 'Specialist',
+                employeeId: editFormData.employeeId || undefined,
+                startDate: editFormData.startDate || undefined,
+                endDate: editFormData.endDate || undefined,
+              },
+            ]
+          : [],
+      };
+
+      await candidateAPI.update(editingCandidate._id, payload);
+      toast.success(`Candidate ${editFormData.firstName} ${editFormData.lastName} updated successfully!`);
       setEditingCandidate(null);
       loadCandidates();
     } catch (err) {
+      console.error(err);
       toast.error(err.response?.data?.error?.message || 'Failed to update candidate');
+    }
+  };
+
+  const handleDeleteCandidate = async () => {
+    if (!editingCandidate) return;
+    setIsDeleting(true);
+    try {
+      await candidateAPI.delete(editingCandidate._id);
+      toast.success(`Candidate ${editingCandidate.firstName} ${editingCandidate.lastName} deleted from database!`);
+      setEditingCandidate(null);
+      setConfirmDeleteId(null);
+      loadCandidates();
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.error?.message || 'Failed to delete candidate');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -1455,15 +1557,15 @@ export default function CandidatesPage() {
         </div>
       )}
 
-      {/* Edit Candidate Assignment Modal */}
+      {/* Comprehensive Edit Candidate Modal */}
       {editingCandidate && (
         <div className="modal-overlay" onClick={() => setEditingCandidate(null)}>
-          <div className="modal" style={{ maxWidth: '520px' }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: '680px' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <div>
-                <h3 className="modal-title">Edit Candidate Assignment</h3>
+                <h3 className="modal-title">Edit Candidate Profile</h3>
                 <p className="modal-subtitle">
-                  Update sector, role requisition, or hiring urgency for {editingCandidate.firstName} {editingCandidate.lastName}
+                  Update candidate personal details, academic credentials, employment, or role assignment
                 </p>
               </div>
               <button
@@ -1475,152 +1577,511 @@ export default function CandidatesPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveCandidateEdit}>
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Candidate Identity Header */}
+            <div
+              style={{
+                margin: '0 24px 12px 24px',
+                padding: '12px 16px',
+                background: 'var(--bg-elevated)',
+                borderRadius: '10px',
+                border: '1px solid var(--border-subtle)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div
                   style={{
-                    padding: '12px 14px',
-                    background: 'var(--bg-elevated)',
-                    borderRadius: '10px',
-                    border: '1px solid var(--border-subtle)',
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                    color: '#fff',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '12px',
+                    justifyContent: 'center',
+                    fontWeight: 'bold',
+                    fontSize: '14px',
                   }}
                 >
-                  <div
-                    style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '50%',
-                      background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
-                      color: '#fff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: 'bold',
-                    }}
-                  >
-                    {editingCandidate.firstName?.[0]}
-                    {editingCandidate.lastName?.[0]}
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: '14px' }}>
-                      {editingCandidate.firstName} {editingCandidate.lastName}
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                      {editingCandidate.email} • {editingCandidate.phone || 'No phone'}
-                    </div>
-                  </div>
+                  {editingCandidate.firstName?.[0]}
+                  {editingCandidate.lastName?.[0]}
                 </div>
-
-                <div className="form-group">
-                  <label className="form-label">Sector / Industry *</label>
-                  <select
-                    className="form-select"
-                    value={editFormData.sector}
-                    onChange={(e) => setEditFormData({ ...editFormData, sector: e.target.value })}
-                  >
-                    {(sectors.length > 0 ? sectors.map((s) => s.name) : SECTORS.filter((s) => s !== 'All Sectors')).map((secName) => (
-                      <option key={secName} value={secName}>
-                        {secName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Target Role *</label>
-                  <input
-                    type="text"
-                    required
-                    className="form-input"
-                    placeholder="e.g. Senior Backend Engineer"
-                    value={editFormData.targetRole}
-                    onChange={(e) => setEditFormData({ ...editFormData, targetRole: e.target.value })}
-                  />
-                  {activeRoles.filter((r) => !editFormData.sector || r.sector === editFormData.sector).length > 0 && (
-                    <div style={{ marginTop: '6px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Quick pick:</span>
-                      {activeRoles
-                        .filter((r) => !editFormData.sector || r.sector === editFormData.sector)
-                        .slice(0, 4)
-                        .map((r) => (
-                          <button
-                            key={r._id}
-                            type="button"
-                            onClick={() =>
-                              setEditFormData({
-                                ...editFormData,
-                                targetRole: r.title,
-                                urgency: r.urgency || editFormData.urgency,
-                              })
-                            }
-                            className="btn btn-ghost btn-xs"
-                            style={{
-                              fontSize: '11px',
-                              padding: '2px 6px',
-                              background: 'var(--bg-elevated)',
-                              border: '1px solid var(--border-subtle)',
-                            }}
-                          >
-                            {r.title}
-                          </button>
-                        ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="grid-2">
-                  <div className="form-group">
-                    <label className="form-label">Hiring Urgency</label>
-                    <select
-                      className="form-select"
-                      value={editFormData.urgency}
-                      onChange={(e) => setEditFormData({ ...editFormData, urgency: e.target.value })}
-                    >
-                      <option value="urgent">🚨 Urgent (Immediate 24h)</option>
-                      <option value="high">⚡ High Priority (48h)</option>
-                      <option value="medium">Standard Priority</option>
-                      <option value="low">Low Priority</option>
-                    </select>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: '14px' }}>
+                    {editingCandidate.firstName} {editingCandidate.lastName}
                   </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Hiring Stage</label>
-                    <select
-                      className="form-select"
-                      value={editFormData.hiringStage}
-                      onChange={(e) => setEditFormData({ ...editFormData, hiringStage: e.target.value })}
-                    >
-                      <option value="applied">Applied</option>
-                      <option value="screening">Screening</option>
-                      <option value="interviewing">Interviewing</option>
-                      <option value="verifying">Verifying</option>
-                      <option value="cleared">Cleared for Hire</option>
-                      <option value="hired">Hired & Onboarded</option>
-                      <option value="flagged">Flagged</option>
-                      <option value="rejected">Rejected</option>
-                    </select>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    ID: {editingCandidate._id} • {editingCandidate.email}
                   </div>
                 </div>
               </div>
 
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setEditingCandidate(null)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <CheckCircle2 size={16} /> Save Changes
-                </button>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {getSectorBadge(editingCandidate.sector)}
+                {getUrgencyBadge(editingCandidate.urgency)}
+              </div>
+            </div>
+
+            {/* Sub-tab Navigation */}
+            <div
+              style={{
+                display: 'flex',
+                borderBottom: '1px solid var(--border-subtle)',
+                padding: '0 24px',
+                gap: '8px',
+              }}
+            >
+              {[
+                { id: 'role', label: 'Role & Requisition', icon: Briefcase },
+                { id: 'personal', label: 'Personal Info', icon: Users },
+                { id: 'academic', label: 'Academic & PRN', icon: GraduationCap },
+                { id: 'employment', label: 'Employment Record', icon: FileText },
+              ].map((tab) => {
+                const Icon = tab.icon;
+                const isActive = editActiveTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setEditActiveTab(tab.id)}
+                    style={{
+                      padding: '10px 14px',
+                      background: 'none',
+                      border: 'none',
+                      borderBottom: isActive ? '2px solid #3b82f6' : '2px solid transparent',
+                      color: isActive ? '#3b82f6' : 'var(--text-secondary)',
+                      fontWeight: isActive ? 600 : 500,
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    <Icon size={14} />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <form onSubmit={handleSaveCandidateEdit}>
+              <div className="modal-body" style={{ maxHeight: '55vh', overflowY: 'auto', padding: '20px 24px' }}>
+                {/* TAB 1: Role & Requisition */}
+                {editActiveTab === 'role' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div className="grid-2">
+                      <div className="form-group">
+                        <label className="form-label">Sector / Industry *</label>
+                        <select
+                          className="form-select"
+                          value={editFormData.sector}
+                          onChange={(e) => setEditFormData({ ...editFormData, sector: e.target.value })}
+                        >
+                          {(sectors.length > 0 ? sectors.map((s) => s.name) : SECTORS.filter((s) => s !== 'All Sectors')).map((secName) => (
+                            <option key={secName} value={secName}>
+                              {secName}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">Target Role *</label>
+                        <input
+                          type="text"
+                          required
+                          className="form-input"
+                          placeholder="e.g. Senior Backend Engineer"
+                          value={editFormData.targetRole}
+                          onChange={(e) => setEditFormData({ ...editFormData, targetRole: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    {activeRoles.filter((r) => !editFormData.sector || r.sector === editFormData.sector).length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Quick pick active opening:</span>
+                        {activeRoles
+                          .filter((r) => !editFormData.sector || r.sector === editFormData.sector)
+                          .slice(0, 4)
+                          .map((r) => (
+                            <button
+                              key={r._id}
+                              type="button"
+                              onClick={() =>
+                                setEditFormData({
+                                  ...editFormData,
+                                  targetRole: r.title,
+                                  urgency: r.urgency || editFormData.urgency,
+                                })
+                              }
+                              className="btn btn-ghost btn-xs"
+                              style={{
+                                fontSize: '11px',
+                                padding: '2px 7px',
+                                background: 'var(--bg-elevated)',
+                                border: '1px solid var(--border-subtle)',
+                              }}
+                            >
+                              {r.title}
+                            </button>
+                          ))}
+                      </div>
+                    )}
+
+                    <div className="grid-2">
+                      <div className="form-group">
+                        <label className="form-label">Hiring Urgency</label>
+                        <select
+                          className="form-select"
+                          value={editFormData.urgency}
+                          onChange={(e) => setEditFormData({ ...editFormData, urgency: e.target.value })}
+                        >
+                          <option value="urgent">🚨 Urgent (Immediate 24h)</option>
+                          <option value="high">⚡ High Priority (48h)</option>
+                          <option value="medium">Standard Priority</option>
+                          <option value="low">Low Priority</option>
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">Hiring Stage</label>
+                        <select
+                          className="form-select"
+                          value={editFormData.hiringStage}
+                          onChange={(e) => setEditFormData({ ...editFormData, hiringStage: e.target.value })}
+                        >
+                          <option value="applied">Applied</option>
+                          <option value="screening">Screening</option>
+                          <option value="interviewing">Interviewing</option>
+                          <option value="verifying">Verifying</option>
+                          <option value="cleared">Cleared for Hire</option>
+                          <option value="hired">Hired & Onboarded</option>
+                          <option value="flagged">Flagged</option>
+                          <option value="rejected">Rejected</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 2: Personal Details */}
+                {editActiveTab === 'personal' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div className="grid-2">
+                      <div className="form-group">
+                        <label className="form-label">First Name *</label>
+                        <input
+                          type="text"
+                          required
+                          className="form-input"
+                          value={editFormData.firstName}
+                          onChange={(e) => setEditFormData({ ...editFormData, firstName: e.target.value })}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Last Name *</label>
+                        <input
+                          type="text"
+                          required
+                          className="form-input"
+                          value={editFormData.lastName}
+                          onChange={(e) => setEditFormData({ ...editFormData, lastName: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid-2">
+                      <div className="form-group">
+                        <label className="form-label">Email Address *</label>
+                        <input
+                          type="email"
+                          required
+                          className="form-input"
+                          value={editFormData.email}
+                          onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Mobile Phone</label>
+                        <input
+                          type="tel"
+                          className="form-input"
+                          placeholder="+91 9876543210"
+                          value={editFormData.phone}
+                          onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid-2">
+                      <div className="form-group">
+                        <label className="form-label">Date of Birth</label>
+                        <input
+                          type="date"
+                          className="form-input"
+                          value={editFormData.dateOfBirth}
+                          onChange={(e) => setEditFormData({ ...editFormData, dateOfBirth: e.target.value })}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">PAN Number</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="ABCDE1234F"
+                          style={{ fontFamily: 'monospace' }}
+                          value={editFormData.panNumber}
+                          onChange={(e) => setEditFormData({ ...editFormData, panNumber: e.target.value.toUpperCase() })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Aadhaar Number</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="12-digit Aadhaar"
+                        style={{ fontFamily: 'monospace' }}
+                        value={editFormData.aadhaarNumber}
+                        onChange={(e) => setEditFormData({ ...editFormData, aadhaarNumber: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 3: Academic / Student Credentials */}
+                {editActiveTab === 'academic' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div
+                      style={{
+                        padding: '10px 14px',
+                        background: 'rgba(59, 130, 246, 0.08)',
+                        border: '1px solid rgba(59, 130, 246, 0.25)',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        color: 'var(--text-secondary)',
+                      }}
+                    >
+                      💡 Playwright automated education verification bots query college databases using <strong>College Name</strong> and <strong>Student Roll / PRN Number</strong>.
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">College / University Name</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="e.g. Vishwakarma Institute of Technology, SPPU Pune"
+                        value={editFormData.institution}
+                        onChange={(e) => setEditFormData({ ...editFormData, institution: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="grid-2">
+                      <div className="form-group">
+                        <label className="form-label">Degree / Qualification</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="e.g. B.Tech / Bachelor of Technology"
+                          value={editFormData.degree}
+                          onChange={(e) => setEditFormData({ ...editFormData, degree: e.target.value })}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Branch / Field of Study</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="e.g. Artificial Intelligence & Data Science"
+                          value={editFormData.fieldOfStudy}
+                          onChange={(e) => setEditFormData({ ...editFormData, fieldOfStudy: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid-2">
+                      <div className="form-group">
+                        <label className="form-label">Student Roll Number / PRN</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="e.g. 12210087 / PRN-2023-4819"
+                          style={{ fontFamily: 'monospace', fontWeight: 600, color: '#38bdf8' }}
+                          value={editFormData.rollNumber}
+                          onChange={(e) => setEditFormData({ ...editFormData, rollNumber: e.target.value })}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Graduation Year</label>
+                        <input
+                          type="number"
+                          className="form-input"
+                          placeholder="e.g. 2026"
+                          value={editFormData.endYear}
+                          onChange={(e) => setEditFormData({ ...editFormData, endYear: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Grade / CGPA</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="e.g. 8.9 CGPA / 85%"
+                        value={editFormData.grade}
+                        onChange={(e) => setEditFormData({ ...editFormData, grade: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 4: Employment Records */}
+                {editActiveTab === 'employment' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div
+                      style={{
+                        padding: '10px 14px',
+                        background: 'rgba(59, 130, 246, 0.08)',
+                        border: '1px solid rgba(59, 130, 246, 0.25)',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        color: 'var(--text-secondary)',
+                      }}
+                    >
+                      💡 Playwright employment bots verify candidate designation and tenure using <strong>Company Name</strong> and <strong>Employee ID</strong>.
+                    </div>
+
+                    <div className="grid-2">
+                      <div className="form-group">
+                        <label className="form-label">Previous / Current Employer</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="e.g. Infosys Ltd / TCS / Google"
+                          value={editFormData.company}
+                          onChange={(e) => setEditFormData({ ...editFormData, company: e.target.value })}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Designation / Role</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="e.g. Software Engineer / Lead Data Analyst"
+                          value={editFormData.designation}
+                          onChange={(e) => setEditFormData({ ...editFormData, designation: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid-2">
+                      <div className="form-group">
+                        <label className="form-label">Employee ID</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="e.g. INF-48291"
+                          style={{ fontFamily: 'monospace' }}
+                          value={editFormData.employeeId}
+                          onChange={(e) => setEditFormData({ ...editFormData, employeeId: e.target.value })}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Start Date / Joining</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="e.g. Jan 2023 / 2023-01-15"
+                          value={editFormData.startDate}
+                          onChange={(e) => setEditFormData({ ...editFormData, startDate: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">End Date / Relieving</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="e.g. Present / Current / June 2024"
+                        value={editFormData.endDate}
+                        onChange={(e) => setEditFormData({ ...editFormData, endDate: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer with Delete & Save */}
+              <div
+                className="modal-footer"
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                {/* Delete Candidate Option */}
+                <div>
+                  {confirmDeleteId !== editingCandidate._id ? (
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-sm"
+                      onClick={() => setConfirmDeleteId(editingCandidate._id)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                      title="Permanently remove candidate and their verification records"
+                    >
+                      <Trash2 size={14} /> Delete Candidate
+                    </button>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '12px', color: '#f87171', fontWeight: 600 }}>
+                        ⚠️ Confirm permanent deletion?
+                      </span>
+                      <button
+                        type="button"
+                        className="btn btn-danger btn-sm"
+                        onClick={handleDeleteCandidate}
+                        disabled={isDeleting}
+                        style={{ padding: '6px 10px', fontSize: '12px' }}
+                      >
+                        {isDeleting ? 'Deleting...' : 'Yes, Delete'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => setConfirmDeleteId(null)}
+                        style={{ padding: '6px 10px', fontSize: '12px' }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Save & Cancel */}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setEditingCandidate(null)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <Save size={16} /> Save All Changes
+                  </button>
+                </div>
               </div>
             </form>
           </div>

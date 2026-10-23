@@ -29,7 +29,7 @@ router.get('/:id', verificationController.getById);
 // PATCH /api/v1/verifications/:id — update verification
 router.patch(
   '/:id',
-  authorize('admin', 'hr_admin'),
+  authorize('admin', 'org_owner', 'hr_admin', 'hr_executive'),
   validate(updateVerificationSchema),
   verificationController.update
 );
