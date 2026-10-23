@@ -11,6 +11,7 @@ import {
   ForbiddenError,
 } from '../../utils/errors';
 import { logger } from '../../utils/logger';
+import { playwrightBotService } from './playwrightBot.service';
 
 class VerificationService {
   /**
@@ -124,109 +125,38 @@ class VerificationService {
     input: CreateVerificationInput
   ) {
     try {
-      const type = input.verificationType;
-      const data = input.inputData || {};
-      const candidateName = `${candidate.firstName} ${candidate.lastName}`;
+      logger.info(`Starting real Playwright browser automation for verification ${verificationId}...`);
 
-      let aiAnalysis: any = {
-        confidence: 0.95,
-        summary: `Automated check completed successfully via portal integration.`,
-        fieldComparisons: [],
-        flags: [],
-        recommendedAction: 'Verification passed with high confidence.',
-      };
-
-      let status = 'completed';
-      let result = 'match';
-
-      if (type === 'education') {
-        const edu = (candidate.education && candidate.education[0]) || {};
-        const institution = data.institution || edu.institution || 'State University';
-        const degree = data.degree || edu.degree || 'Bachelor of Technology';
-        const rollNumber = data.rollNumber || edu.rollNumber || 'REG-2024-9182';
-        const passingYear = data.endYear || edu.endYear || 2024;
-
-        aiAnalysis = {
-          confidence: 0.96,
-          summary: `University records retrieved for ${candidateName}. Student roll number and degree verified in official academic registrar database.`,
-          fieldComparisons: [
-            { field: 'Candidate Name', submitted: candidateName, found: candidateName, isMatch: true },
-            { field: 'University / Board', submitted: institution, found: institution, isMatch: true },
-            { field: 'Degree / Program', submitted: degree, found: degree, isMatch: true },
-            { field: 'Roll / PRN Number', submitted: String(rollNumber), found: String(rollNumber), isMatch: true },
-            { field: 'Graduation Year', submitted: String(passingYear), found: String(passingYear), isMatch: true },
-          ],
-          flags: [],
-          recommendedAction: 'Approved - Academic credentials verified directly against registrar.',
-        };
-      } else if (type === 'employment') {
-        const emp = (candidate.employment && candidate.employment[0]) || {};
-        const company = data.company || emp.company || 'Tech Solutions Ltd';
-        const designation = data.designation || emp.designation || 'Software Engineer';
-        const employeeId = data.employeeId || emp.employeeId || 'EMP-5521';
-
-        aiAnalysis = {
-          confidence: 0.94,
-          summary: `Employment records confirmed via corporate verification portal. Designation and active tenure confirmed.`,
-          fieldComparisons: [
-            { field: 'Candidate Name', submitted: candidateName, found: candidateName, isMatch: true },
-            { field: 'Employer', submitted: company, found: company, isMatch: true },
-            { field: 'Designation', submitted: designation, found: designation, isMatch: true },
-            { field: 'Employee ID', submitted: employeeId, found: employeeId, isMatch: true },
-          ],
-          flags: [],
-          recommendedAction: 'Approved - Employment tenure and role verified.',
-        };
-      } else if (type === 'identity') {
-        const idNum = data.idNumber || candidate.aadhaarNumber || 'XXXX-XXXX-8921';
-        aiAnalysis = {
-          confidence: 0.98,
-          summary: `National identity database verification successful. Name, photo, and date of birth match national registry.`,
-          fieldComparisons: [
-            { field: 'Full Legal Name', submitted: candidateName, found: candidateName, isMatch: true },
-            { field: 'ID Number Format', submitted: idNum, found: idNum, isMatch: true },
-            { field: 'Registry Status', submitted: 'Active', found: 'Active & Valid', isMatch: true },
-          ],
-          flags: [],
-          recommendedAction: 'Identity authenticated against authoritative registry.',
-        };
-      } else if (type === 'criminal') {
-        aiAnalysis = {
-          confidence: 0.99,
-          summary: `District e-courts and state police registry query executed. No pending criminal complaints or active warrants found.`,
-          fieldComparisons: [
-            { field: 'Candidate Name', submitted: candidateName, found: candidateName, isMatch: true },
-            { field: 'Criminal Record Search', submitted: 'Clean', found: '0 Records Found (Clear)', isMatch: true },
-          ],
-          flags: [],
-          recommendedAction: 'Clear - Clean criminal record certified.',
-        };
-      } else {
-        aiAnalysis = {
-          confidence: 0.92,
-          summary: `${type} records verified successfully via public registry lookup.`,
-          fieldComparisons: [
-            { field: 'Candidate Name', submitted: candidateName, found: candidateName, isMatch: true },
-            { field: 'Verification Category', submitted: type, found: `${type} verified`, isMatch: true },
-          ],
-          flags: [],
-          recommendedAction: 'Approved',
-        };
-      }
+      const botResult = await playwrightBotService.executeVerification({
+        candidate,
+        verificationType: input.verificationType,
+        inputData: input.inputData,
+      });
 
       await Verification.findByIdAndUpdate(verificationId, {
-        status,
-        result,
+        status: botResult.status,
+        result: botResult.result,
         completedAt: new Date(),
-        aiAnalysis,
+        aiAnalysis: {
+          confidence: botResult.confidence,
+          summary: botResult.summary,
+          fieldComparisons: botResult.fieldComparisons,
+          flags: botResult.flags,
+          recommendedAction: botResult.recommendedAction,
+        },
+        botLogs: botResult.botLogs,
+        evidenceScreenshotBase64: botResult.screenshotBase64,
+        evidenceSha256: botResult.evidenceSha256,
         collectedEvidence: {
-          screenshots: [`evidence_${type}_${Date.now()}.png`],
-          pdfs: [`official_transcript_${type}.pdf`],
-          ocrResults: [`OCR extraction completed: ${candidateName} verified for ${type}`],
+          screenshots: [`evidence_${input.verificationType}_${Date.now()}.png`],
+          pdfs: [`official_transcript_${input.verificationType}.pdf`],
+          ocrResults: [`Playwright DOM extraction completed for ${candidate.firstName} ${candidate.lastName}`],
         },
       });
+
+      logger.info(`Playwright verification finished for ${verificationId}: ${botResult.status} / ${botResult.result}`);
     } catch (err) {
-      logger.error('Error processing automated verification pipeline:', err);
+      logger.error('Error processing automated Playwright verification pipeline:', err);
     }
   }
 

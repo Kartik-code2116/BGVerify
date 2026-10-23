@@ -438,105 +438,218 @@ export default function HiringRolesPage() {
         </div>
       </div>
 
-      {/* Quick Launch Pre-configured Sector Templates */}
-      <div className="card p-4 border border-slate-700/60 bg-slate-800/40">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Sparkles size={16} className="text-amber-400" />
-            <span className="text-xs font-semibold text-slate-200 uppercase tracking-wide">
-              Quick-Launch Sector Templates (Pre-configured Checks)
-            </span>
-          </div>
-          <span className="text-xs text-slate-400 hidden sm:inline">Click any role to instantiate instantly</span>
+      {/* Sleek Small Quick-Launch Templates */}
+      <div className="card py-2 px-3.5 border border-slate-800 bg-slate-900/50 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 text-xs text-slate-300 font-semibold">
+          <Sparkles size={13} className="text-amber-400" />
+          <span>Quick-Launch Role Templates:</span>
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="flex flex-wrap items-center gap-1.5">
           {PRESET_TEMPLATES.map((tpl) => (
             <button
               key={tpl.title}
               onClick={() => applyTemplate(tpl)}
-              className="text-left p-3 rounded-lg border border-slate-700 bg-slate-900/60 hover:bg-slate-800/80 hover:border-primary-500/40 transition group"
+              className="text-xs px-2.5 py-1 rounded-md border border-slate-700/80 bg-slate-800/60 hover:bg-slate-700 hover:border-primary-500/50 text-slate-200 transition flex items-center gap-1.5 group"
+              title={`Instantiate ${tpl.title} (${tpl.sector}) with pre-configured checks`}
             >
-              <div className="flex items-center justify-between">
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium border ${getSectorStyle(tpl.sector)}`}>
-                  {tpl.sector.split('&')[0]}
-                </span>
-                {tpl.urgency === 'urgent' && (
-                  <span className="text-[10px] text-rose-400 font-bold flex items-center gap-0.5">
-                    <Flame size={11} /> Urgent
-                  </span>
-                )}
-              </div>
-              <p className="font-medium text-white text-sm mt-1.5 group-hover:text-primary-300 transition line-clamp-1">
-                {tpl.title}
-              </p>
-              <div className="flex items-center gap-2 mt-2 text-[11px] text-slate-400">
-                <span>{tpl.openPositions} Openings</span>
-                <span>•</span>
-                <span>{tpl.requiredChecks.length} Checks</span>
-              </div>
+              <span className={`w-1.5 h-1.5 rounded-full ${tpl.urgency === 'urgent' ? 'bg-rose-400' : 'bg-primary-400'}`}></span>
+              <span className="font-medium">{tpl.title}</span>
+              <span className="text-[10px] text-slate-400 group-hover:text-primary-300">
+                ({tpl.sector.split('&')[0].trim()})
+              </span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Filters & Dynamic Sector Tabs */}
-      <div className="card p-4 space-y-4">
-        {/* Sector Tabs (dynamically populated from company's sectors) */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
-          <button
-            onClick={() => setSelectedSector('All Sectors')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition ${
-              selectedSector === 'All Sectors'
-                ? 'bg-primary-500 text-white shadow-md shadow-primary-500/30'
-                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-            }`}
-          >
-            All Sectors ({sectors.length})
-          </button>
-
-          {sectors.map((sec) => (
+      {/* Real Company Sectors & Pre-Configured Checks Card Grid */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Layers size={16} className="text-primary-400" />
+            <h2 className="text-xs font-semibold text-slate-200 uppercase tracking-wide">
+              Company Sectors & Pre-Configured Checks ({sectors.length})
+            </h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400 hidden sm:inline">
+              Click any sector card to filter roles below
+            </span>
             <button
-              key={sec._id || sec.name}
-              onClick={() => setSelectedSector(sec.name)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition flex items-center gap-1.5 ${
-                selectedSector === sec.name
-                  ? 'bg-primary-500 text-white shadow-md shadow-primary-500/30'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-              }`}
+              onClick={handleOpenSectorModal}
+              className="btn btn-secondary text-xs py-1 px-2.5 flex items-center gap-1.5"
             >
-              <span>{sec.name}</span>
-              {sec.roleCount > 0 && (
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-900/60 font-semibold">
-                  {sec.roleCount}
-                </span>
-              )}
+              <Settings2 size={13} />
+              Manage Sectors
             </button>
-          ))}
-
-          <button
-            onClick={handleOpenSectorModal}
-            className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800/60 text-primary-400 hover:text-white hover:bg-primary-600 transition flex items-center gap-1 whitespace-nowrap border border-primary-500/30"
-          >
-            <Plus size={13} /> New Sector
-          </button>
+          </div>
         </div>
 
-        {/* Search & Urgency Filters */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-slate-700/60">
-          <div className="relative w-full sm:w-80">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search roles, sectors, departments..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="form-input text-xs w-full"
-              style={{ paddingLeft: '34px', paddingBottom: '8px', paddingTop: '8px' }}
-            />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* "All Sectors" Overview Card */}
+          <div
+            onClick={() => setSelectedSector('All Sectors')}
+            className={`text-left p-3.5 rounded-xl border transition cursor-pointer relative group flex flex-col justify-between ${
+              selectedSector === 'All Sectors'
+                ? 'border-primary-500 bg-primary-950/20 shadow-md shadow-primary-500/10 ring-1 ring-primary-500/50'
+                : 'border-slate-800 bg-slate-900/60 hover:bg-slate-850 hover:border-slate-700'
+            }`}
+          >
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold border bg-slate-800 text-slate-300 border-slate-700">
+                  Global All
+                </span>
+                {selectedSector === 'All Sectors' && (
+                  <span className="text-[10px] text-primary-400 font-bold flex items-center gap-0.5">
+                    <CheckCircle2 size={12} /> Active
+                  </span>
+                )}
+              </div>
+              <h3 className="font-bold text-white text-sm group-hover:text-primary-300 transition">
+                All Sectors
+              </h3>
+              <p className="text-xs text-slate-400 mt-1 line-clamp-2">
+                Unified view across all organizational departments and candidate pipelines.
+              </p>
+            </div>
+            <div className="flex items-center justify-between pt-2.5 mt-2.5 border-t border-slate-800 text-xs">
+              <span className="font-semibold text-slate-200">{roles.length} Roles Active</span>
+              <span className="text-slate-400">{sectors.length} Sectors</span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          {/* Real Sectors Cards */}
+          {sectors.map((sec) => {
+            const isSelected = selectedSector === sec.name;
+            const secStyle = getSectorStyle(sec.name);
+
+            return (
+              <div
+                key={sec._id || sec.name}
+                onClick={() => setSelectedSector(isSelected ? 'All Sectors' : sec.name)}
+                className={`text-left p-3.5 rounded-xl border transition cursor-pointer relative group flex flex-col justify-between ${
+                  isSelected
+                    ? 'border-primary-500 bg-primary-950/25 shadow-lg shadow-primary-500/15 ring-2 ring-primary-500/50'
+                    : 'border-slate-800 bg-slate-900/60 hover:bg-slate-850 hover:border-slate-700'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${secStyle}`}>
+                      {sec.name.split('&')[0].trim()}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {isSelected && (
+                        <span className="text-[10px] text-primary-400 font-bold flex items-center gap-0.5">
+                          <CheckCircle2 size={12} /> Filtered
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditSector(sec);
+                        }}
+                        className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                        title={`Edit ${sec.name}`}
+                      >
+                        <Edit2 size={12} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <h3 className="font-bold text-white text-sm group-hover:text-primary-300 transition line-clamp-1">
+                    {sec.name}
+                  </h3>
+
+                  <p className="text-xs text-slate-400 mt-1 line-clamp-2" title={sec.description}>
+                    {sec.description || 'Pre-configured verification checks & candidate requisitions.'}
+                  </p>
+                </div>
+
+                <div>
+                  {/* Default Checks Badges */}
+                  {sec.defaultChecks && sec.defaultChecks.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2.5">
+                      {sec.defaultChecks.slice(0, 3).map((chk) => (
+                        <span
+                          key={chk}
+                          className="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700/60 capitalize"
+                        >
+                          {chk.replace('_', ' ')}
+                        </span>
+                      ))}
+                      {sec.defaultChecks.length > 3 && (
+                        <span className="text-[9px] px-1 py-0.2 rounded text-slate-400">
+                          +{sec.defaultChecks.length - 3}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-2.5 mt-2.5 border-t border-slate-800 text-[11px] text-slate-400">
+                    <span className="font-medium text-slate-300">
+                      {sec.roleCount || 0} Open {sec.roleCount === 1 ? 'Role' : 'Roles'}
+                    </span>
+                    <span>•</span>
+                    <span>{sec.candidateCount || 0} Candidates</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* "+ Add Custom Sector" Card */}
+          <div
+            onClick={handleOpenSectorModal}
+            className="p-3.5 rounded-xl border border-dashed border-slate-700 hover:border-primary-500/60 bg-slate-900/30 hover:bg-slate-850/50 transition cursor-pointer flex flex-col items-center justify-center text-center group min-h-[140px]"
+          >
+            <div className="w-8 h-8 rounded-lg bg-primary-500/10 text-primary-400 flex items-center justify-center border border-primary-500/20 group-hover:scale-110 transition">
+              <Plus size={16} />
+            </div>
+            <p className="text-xs font-semibold text-slate-200 mt-2 group-hover:text-primary-300">
+              + Add Custom Sector
+            </p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Configure default checks & colors
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Search & Urgency Filter Bar */}
+      <div className="card p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="relative w-full sm:w-80">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search roles, sectors, departments..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="form-input text-xs w-full"
+            style={{ paddingLeft: '34px', paddingBottom: '8px', paddingTop: '8px' }}
+          />
+        </div>
+
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+          {selectedSector !== 'All Sectors' && (
+            <div className="flex items-center gap-1 text-xs text-slate-300 bg-slate-800 px-2.5 py-1 rounded-md border border-slate-700">
+              <span>
+                Sector: <strong className="text-primary-300">{selectedSector}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedSector('All Sectors')}
+                className="text-slate-400 hover:text-white ml-1"
+                title="Clear sector filter"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
             <span className="text-xs text-slate-400 flex items-center gap-1 whitespace-nowrap">
               <Filter size={14} /> Priority:
             </span>

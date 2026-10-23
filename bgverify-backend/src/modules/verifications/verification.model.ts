@@ -74,6 +74,9 @@ export interface IVerification extends Document {
   retryCount: number;
   maxRetries: number;
   errorLog?: string[];
+  botLogs?: string[];
+  evidenceScreenshotBase64?: string;
+  evidenceSha256?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -201,6 +204,9 @@ const verificationSchema = new Schema<IVerification>(
       default: 3,
     },
     errorLog: [String],
+    botLogs: [String],
+    evidenceScreenshotBase64: String,
+    evidenceSha256: String,
   },
   {
     timestamps: true,

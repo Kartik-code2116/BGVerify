@@ -24,6 +24,7 @@
     "pdf-parse": "^2.4.5",
     "pino": "^8.16.2",
     "pino-pretty": "^10.2.3",
+    "playwright": "^1.64.1",
     "tesseract.js": "^7.0.0",
     "zod": "^3.22.4"
   },
