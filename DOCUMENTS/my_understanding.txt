@@ -1,0 +1,95 @@
+🔍 What is BGVerify.ai?
+BGVerify.ai is an AI-powered Background Verification platform — think of it like a smart, automated system that companies use to verify whether a job candidate is telling the truth about their past.
+
+🎯 Simple Real-World Example:
+A company (say, TCS) wants to hire Rahul. Before giving him the job, they need to confirm:
+
+Did he really work at Infosys from 2018–2021?
+Does he actually have an MBA from Pune University?
+Does he have any criminal record?
+Instead of doing this manually (which takes weeks), BGVerify does it automatically using AI + bots — within hours.
+
+💰 How the Business Works (BGCoins System)
+Pack	Price
+100 BGCoins	₹9,000
+500 BGCoins	₹42,500
+1,000 BGCoins	₹80,000
+Companies buy BGCoins (like recharge credits)
+Each verification (employment check, education check, etc.) costs 1 BGCoin
+Unused coins stay in the wallet
+👤 The 3 User Roles — Who Does What?
+🔴 1. ADMIN (admin@bgverify.ai)
+The BGVerify platform owner/operator — controls everything
+
+What they do	How
+See ALL companies registered on the platform	"Company Accounts" tab
+Monitor all verifications happening across all orgs	Full dashboard with all stats
+Manage BGCoin wallets & recharges for companies	Wallet management
+View immutable security & audit logs	"Audit & Security Trail" tab
+Build AI workflows & website templates for Playwright bots	Workflow builder
+Detect fraud, manage invoices, GST	Admin portal tools
+🧠 Think of ADMIN as the BGVerify company employee who runs the whole SaaS platform.
+
+Tabs visible to Admin:
+
+✅ Dashboard Overview
+✅ Verification Requests
+✅ Review Queue
+✅ Stored Documents
+✅ Company Accounts (exclusive)
+✅ Audit & Security Trail (exclusive)
+🟡 2. HR MANAGER / ORG_HR (hr@acme-corp.com)
+A company's HR department using the platform to verify their new hires
+
+What they do	How
+Submit a new candidate for background verification	Clicks "New Verification", fills candidate details
+Track verification status (Pending → Running → Completed)	Verification Requests tab
+Review flagged cases that AI couldn't auto-decide	Review Queue tab
+See KPI metrics — how many passed, failed, pending	Dashboard
+Top up BGCoins when balance is low	"Top Up Credits" modal
+Download final verification reports	Documents tab
+🧠 Think of HR Manager as an Acme Corp employee who uses BGVerify like a tool/service to vet candidates.
+
+Tabs visible to HR Manager:
+
+✅ Dashboard Overview
+✅ Verification Requests
+✅ Review Queue
+✅ Stored Documents
+🟢 3. CANDIDATE (candidate@example.com)
+The person being verified — the job applicant
+
+What they do	How
+Give consent for the background check	Consent form (required by law)
+Upload their own documents	Aadhaar, Passport, degree certificates, etc.
+Take a live selfie for face matching	Camera capture
+Track their own verification progress	"My Tasks & Uploads" tab
+See which checks are done / pending	Dashboard
+🧠 Think of Candidate as Rahul — the person who is being checked. He logs in to provide his consent and upload his documents so the AI can verify them.
+
+Tabs visible to Candidate:
+
+✅ Dashboard Overview
+✅ My Tasks & Uploads (exclusive — upload docs, give consent)
+✅ Stored Documents
+🤖 What Happens Under the Hood (AI Engine)
+HR submits candidate → AI bot (Playwright) launches
+        ↓
+Bot visits employer portals, university websites, govt databases
+        ↓
+Fills in candidate details, captures screenshots & PDFs
+        ↓
+OCR extracts text from documents
+        ↓
+AI (LLM) compares:  "What HR said"  vs  "What website shows"
+        ↓
+Result:  ✅ Match / ❌ No Match / ⚠️ Needs Manual Review
+        ↓
+HR gets final audit-ready report
+📋 Summary Table
+ADMIN	HR Manager	Candidate
+Who	BGVerify operator	Company's HR	Job applicant
+Goal	Run the platform	Verify new hires	Get verified
+Key action	Manage all orgs & audits	Submit & review verifications	Upload docs & give consent
+Login	admin@bgverify.ai	hr@acme-corp.com	candidate@example.com
+Password	AdminPass123!	HrPass123!	CandidatePass123!

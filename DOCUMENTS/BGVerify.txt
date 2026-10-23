@@ -1,0 +1,646 @@
+BGVerify.ai – AI-Powered Background Verification SaaS
+
+Vision
+
+A global SaaS platform where organizations purchase BGCoins (1 BGCoin = 1 background verification) and submit candidate verification requests. AI agents powered by Playwright automate verification by visiting employer portals, government websites, educational institutions, and third-party databases, collecting evidence and generating an audit-ready report.
+
+
+---
+
+Business Model
+
+Customers
+
+HR Teams
+
+Recruitment Agencies
+
+BPO/KPO
+
+Staffing Companies
+
+Universities
+
+Financial Institutions
+
+Gig Economy Platforms
+
+Government Organizations
+
+
+Currency
+
+BGCoins
+
+Example Pricing
+
+100 BGCoins = ₹9,000
+
+500 BGCoins = ₹42,500
+
+1,000 BGCoins = ₹80,000
+
+
+Unused coins remain in the wallet.
+
+
+---
+
+Verification Types
+
+One BGCoin per verification
+
+Employment
+
+Education
+
+Address
+
+Identity
+
+Criminal
+
+Court Records
+
+Social Media
+
+Passport
+
+Driving License
+
+Professional Certification
+
+Drug Test
+
+Credit Check
+
+Global Sanctions
+
+Reference Check
+
+
+
+---
+
+Modules
+
+Client Portal
+
+Register Organization
+
+KYC
+
+Wallet
+
+Buy BGCoins
+
+Candidate Management
+
+Upload Documents
+
+Verification Dashboard
+
+AI Status
+
+Reports
+
+Evidence Viewer
+
+API
+
+Team Management
+
+
+
+---
+
+Candidate Portal
+
+Consent
+
+Aadhaar/Passport Verification
+
+Upload Documents
+
+Live Selfie
+
+Face Match
+
+Digital Signature
+
+Track Progress
+
+
+
+---
+
+AI Verification Engine
+
+Receives Job
+
+↓
+
+Reads Verification Template
+
+↓
+
+Launches Playwright Browser
+
+↓
+
+Visits Website
+
+↓
+
+Login
+
+↓
+
+Fill Candidate Details
+
+↓
+
+Submit
+
+↓
+
+Wait Response
+
+↓
+
+Capture Evidence
+
+↓
+
+OCR
+
+↓
+
+AI Validation
+
+↓
+
+Update Database
+
+↓
+
+Notify Client
+
+
+---
+
+Playwright Workflow
+
+Example
+
+Receive Request
+
+↓
+
+Launch Chromium
+
+↓
+
+Open URL
+
+↓
+
+Login
+
+↓
+
+Navigate
+
+↓
+
+Fill Candidate Name
+
+↓
+
+Fill DOB
+
+↓
+
+Fill Employee ID
+
+↓
+
+Upload Consent
+
+↓
+
+Click Search
+
+↓
+
+Capture Screenshot
+
+↓
+
+Download PDF
+
+↓
+
+Extract HTML
+
+↓
+
+OCR
+
+↓
+
+Store Evidence
+
+↓
+
+Update Status
+
+↓
+
+Email Client
+
+
+---
+
+Evidence Collection
+
+Store
+
+Screenshots
+
+HTML
+
+PDFs
+
+API Responses
+
+Videos
+
+Console Logs
+
+Network Logs
+
+Cookies
+
+OCR Results
+
+AI Summary
+
+
+Everything is digitally signed.
+
+
+---
+
+AI Validation
+
+Uses LLM to compare
+
+Client Data
+
+vs
+
+Website Result
+
+Output
+
+Match
+
+Not Match
+
+Partial Match
+
+Need Manual Review
+
+Insufficient Data
+
+
+---
+
+Workflow Engine
+
+Pending
+
+↓
+
+Assigned
+
+↓
+
+Playwright Running
+
+↓
+
+Waiting Website
+
+↓
+
+Evidence Collected
+
+↓
+
+AI Review
+
+↓
+
+Manual Review
+
+↓
+
+Completed
+
+↓
+
+Delivered
+
+
+---
+
+Notifications
+
+Email
+
+SMS
+
+WhatsApp
+
+Webhook
+
+Slack
+
+Teams
+
+
+---
+
+Admin Portal
+
+Organization Management
+
+Wallet
+
+Coin Recharge
+
+Workflow Builder
+
+Website Templates
+
+Playwright Recorder
+
+AI Prompt Builder
+
+Evidence Review
+
+Invoices
+
+GST
+
+Audit Logs
+
+Analytics
+
+Fraud Detection
+
+
+---
+
+AI Features
+
+AI Agent decides
+
+Which page to visit
+
+Which fields to fill
+
+CAPTCHA detection
+
+Retry logic
+
+Error handling
+
+Auto Screenshot
+
+Auto OCR
+
+AI Summary
+
+Confidence Score
+
+Duplicate Detection
+
+Fraud Detection
+
+
+
+---
+
+Tech Stack
+
+Frontend
+
+React
+
+Next.js
+
+TypeScript
+
+Tailwind CSS
+
+PWA
+
+Flutter Mobile Apps
+
+
+Backend
+
+NestJS
+
+Node.js
+
+TypeScript
+
+GraphQL
+
+REST API
+
+
+Automation
+
+Playwright
+
+Browser Pool
+
+Proxy Management
+
+OCR
+
+Vision AI
+
+
+AI
+
+OpenAI-compatible LLM
+
+Local LLM (optional)
+
+Retrieval-Augmented Generation (RAG)
+
+Document AI
+
+Face Matching
+
+Fraud Detection Models
+
+
+Databases
+
+PostgreSQL
+
+MongoDB
+
+Redis
+
+Elasticsearch
+
+
+Storage
+
+S3-compatible Object Storage
+
+Versioned Evidence Repository
+
+
+Queue
+
+RabbitMQ
+
+BullMQ
+
+Kafka (Enterprise)
+
+
+DevOps
+
+Docker
+
+Kubernetes
+
+ArgoCD
+
+GitHub Actions
+
+Prometheus
+
+Grafana
+
+Loki
+
+
+Cloud
+
+AWS
+
+Azure
+
+Google Cloud
+
+
+
+---
+
+APIs
+
+HRMS Integration
+
+ATS Integration
+
+ERP
+
+CRM
+
+Email
+
+SMS
+
+WhatsApp
+
+Payment Gateway
+
+Government Identity Services (where legally authorized)
+
+University Verification APIs
+
+Employment Verification APIs
+
+
+
+---
+
+Security
+
+Multi-tenant SaaS
+
+Role-Based Access Control (RBAC)
+
+Single Sign-On (SAML/OIDC)
+
+Multi-Factor Authentication (MFA)
+
+Encryption at rest and in transit
+
+Immutable Audit Logs
+
+Digital Evidence Hashing
+
+Consent Management
+
+Data Retention Policies
+
+Compliance with applicable privacy regulations (such as GDPR or local laws where deployed)
+
+
+
+---
+
+Revenue Streams
+
+BGCoin Packs
+
+Monthly Subscription
+
+Enterprise License
+
+API Usage
+
+White-label Platform
+
+Premium AI Verification
+
+Manual Verification Services
+
+Custom Integrations
+
+
+
+---
+
+Future Roadmap
+
+Autonomous AI agents that adapt to website changes with human approval workflows.
+
+Browser fingerprinting and anti-bot resilience for authorized verification flows.
+
+Global verification marketplace connecting employers, universities, and verification partners.
+
+AI risk scoring for employment fraud.
+
+Blockchain-backed tamper-evident evidence registry.
+
+Voice AI for automated reference verification.
+
+Mobile investigator app with offline evidence capture.
+
+Employer and university self-service verification portals.
+
+
+This architecture supports a scalable, enterprise-grade background verification platform where organizations purchase BGCoins, submit verification jobs, Playwright-based automation performs authorized checks, AI validates collected evidence, and clients receive real-time status updates, notifications, and downloadable verification reports.
