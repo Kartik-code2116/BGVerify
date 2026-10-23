@@ -1325,3 +1325,33 @@ body {
     padding: 16px;
   }
 }
+
+/* Shared theme switch for the public, sign-in and registration pages. */
+html[data-theme="light"] {
+  --bg-primary: #f5f7f3;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  --bg-elevated: #f3f5f1;
+  --bg-hover: #e9eee8;
+  --border-subtle: rgba(35, 58, 43, 0.08);
+  --border-default: rgba(35, 58, 43, 0.14);
+  --text-primary: #1b2921;
+  --text-secondary: #5d6b61;
+  --text-muted: #7c897f;
+}
+
+.theme-toggle { font-family: inherit; }
+.auth-theme-toggle { position: absolute; right: 24px; top: 20px; z-index: 2; }
+.auth-page .login-logo { text-decoration: none; }
+.auth-role-placeholder { display: none; }
+.login-role-picker { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: -12px 0 22px; }
+.login-role-picker button { min-height: 38px; padding: 6px 4px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--border-default); border-radius: 9px; background: var(--bg-elevated); color: var(--text-secondary); font-family: inherit; font-size: 11px; cursor: pointer; transition: .15s ease; }
+.login-role-picker button:hover, .login-role-picker button.selected { border-color: var(--accent-blue); color: var(--accent-blue); background: rgba(59,130,246,.08); }
+html[data-theme="light"] .auth-page { background: #f5f7f3; }
+html[data-theme="light"] .auth-page .login-card { box-shadow: 0 20px 70px rgba(31,52,38,.10); }
+html[data-theme="light"] .auth-page .login-bg-pattern { background-image: radial-gradient(ellipse at 20% 50%, rgba(59,130,100,.09) 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, rgba(139,125,92,.07) 0%, transparent 50%); }
+
+@media (max-width: 768px) {
+  .auth-theme-toggle { top: 12px; right: 12px; }
+  .auth-theme-toggle .theme-toggle { background: var(--bg-card); }
+}

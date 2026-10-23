@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Shield } from 'lucide-react';
+import { BriefcaseBusiness, Shield, Users } from 'lucide-react';
+import ThemeToggle from '../components/ThemeToggle';
 
 const testAccounts = [
   { email: 'admin@bgverify.ai', password: 'AdminPass123!', role: 'Admin', color: '#ef4444' },
@@ -10,6 +11,8 @@ const testAccounts = [
 ];
 
 export default function LoginPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedRole = searchParams.get('role') || 'company';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -43,18 +46,23 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="login-page">
+    <div className="login-page auth-page">
       <div className="login-bg-pattern" />
+      <div className="auth-theme-toggle"><ThemeToggle /></div>
       <div className="login-card">
-        <div className="login-logo">
+        <Link className="login-logo" to="/">
           <div className="logo-icon">
             <Shield size={28} />
           </div>
           <h1>BGVerify<span>.ai</span></h1>
-        </div>
+        </Link>
         <p className="login-subtitle">
-          AI-Powered Background Verification Platform
+          Sign in to your BGVerify workspace
         </p>
+
+        <div className="login-role-picker" aria-label="Choose your portal">
+          {[{id:'company',name:'HR team',icon:BriefcaseBusiness},{id:'candidate',name:'Candidate',icon:Users},{id:'admin',name:'Admin',icon:Shield}].map(({id,name,icon:Icon})=><button type="button" key={id} className={selectedRole===id?'selected':''} onClick={()=>setSearchParams({role:id})}><Icon size={15}/><span>{name}</span></button>)}
+        </div>
 
         {error && <div className="alert-error">{error}</div>}
 
@@ -91,12 +99,12 @@ export default function LoginPage() {
         </form>
 
         <div className="login-footer">
-          Don't have an account?{' '}
+          New to BGVerify?{' '}
           <Link to="/register">Create one</Link>
         </div>
 
         <div className="test-accounts">
-          <h4>Quick Login (Demo)</h4>
+          <h4>Demo accounts · select to fill in</h4>
           {testAccounts.map((acc) => (
             <button
               key={acc.email}

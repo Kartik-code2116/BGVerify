@@ -7,6 +7,7 @@ import DashboardLayout from './layouts/DashboardLayout';
 // Auth Pages
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import LandingPage from './pages/LandingPage';
 
 // Admin Portal Pages
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
@@ -69,7 +70,7 @@ export default function App() {
           {/* Public Auth Routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route path="/" element={<RootRedirect />} />
+          <Route path="/" element={<HomePage />} />
 
           {/* Admin Portal */}
           <Route
@@ -123,4 +124,12 @@ export default function App() {
       </BrowserRouter>
     </AuthProvider>
   );
+}
+
+function HomePage() {
+  const { isAuthenticated, loading } = useAuth();
+  if (loading && localStorage.getItem('bgverify_token')) {
+    return <div className="loading-screen"><div className="loading-spinner"/><p>Loading BGVerify...</p></div>;
+  }
+  return isAuthenticated ? <RootRedirect /> : <LandingPage />;
 }

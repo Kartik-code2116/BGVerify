@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Shield } from 'lucide-react';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function RegisterPage() {
   const [form, setForm] = useState({
@@ -35,13 +36,14 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="login-page">
+    <div className="login-page auth-page">
       <div className="login-bg-pattern" />
+      <div className="auth-theme-toggle"><ThemeToggle /></div>
       <div className="login-card" style={{ maxWidth: '480px' }}>
-        <div className="login-logo">
+        <Link className="login-logo" to="/">
           <div className="logo-icon"><Shield size={28} /></div>
           <h1>BGVerify<span>.ai</span></h1>
-        </div>
+        </Link>
         <p className="login-subtitle">Create your account</p>
 
         {error && <div className="alert-error">{error}</div>}
