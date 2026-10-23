@@ -5,8 +5,50 @@ import { z } from 'zod';
 import { Candidate } from './candidate.model';
 import { User } from '../users/user.model';
 import { NotFoundError } from '../../utils/errors';
+import { resumeParserService } from './resumeParser.service';
 
 const router = Router();
+
+// POST /api/v1/candidates/parse-resume — OCR analyze candidate resume and extract fields
+router.post(
+  '/parse-resume',
+  authenticate,
+  authorize('admin', 'org_owner', 'hr_admin', 'hr_executive'),
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const { rawText, fileName, fileBase64, mimeType } = req.body;
+      let textToParse = rawText || '';
+
+      // If base64 file buffer is provided, extract real text using pdf-parse or Tesseract OCR
+      if (fileBase64) {
+        try {
+          const cleanBase64 = fileBase64.replace(/^data:[^;]+;base64,/, '');
+          const buffer = Buffer.from(cleanBase64, 'base64');
+          const extracted = await resumeParserService.extractTextFromFile(
+            buffer,
+            fileName || 'resume.pdf',
+            mimeType
+          );
+          if (extracted && extracted.trim().length > 0) {
+            textToParse = extracted;
+          }
+        } catch (extractErr) {
+          console.error('File text extraction error, falling back to rawText:', extractErr);
+        }
+      }
+
+      const parsedData = resumeParserService.parseResumeText(textToParse, fileName || 'Candidate_Resume.pdf');
+
+      res.status(200).json({
+        success: true,
+        message: 'Resume analyzed successfully via OCR and AI Extractor',
+        data: parsedData,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 const createCandidateSchema = z.object({
   firstName: z.string().min(2),

@@ -62,6 +62,7 @@ export const candidateAPI = {
   giveConsent: (id) => api.patch(`/candidates/${id}/consent`),
   uploadDocument: (id, data) => api.post(`/candidates/${id}/documents`, data),
   uploadSelfie: (id, data) => api.post(`/candidates/${id}/selfie`, data),
+  parseResume: (data) => api.post('/candidates/parse-resume', data),
 };
 
 // ─── Wallet Service ──────────────────────────────────────
