@@ -15,16 +15,9 @@ async function seed() {
     await mongoose.connect(MONGODB_URI);
     console.log('📦 Connected to MongoDB');
 
-    // Clear existing data
-    await Promise.all([
-      User.deleteMany({}),
-      Organization.deleteMany({}),
-      Wallet.deleteMany({}),
-      WalletTransaction.deleteMany({}),
-      Candidate.deleteMany({}),
-      Verification.deleteMany({}),
-    ]);
-    console.log('🗑️  Cleared existing data');
+    // Clear existing database and stale indexes
+    await mongoose.connection.dropDatabase();
+    console.log('🗑️  Dropped database & cleared stale collections and indexes');
 
     // ─── Create Admin User ──────────────────────────────
     const admin = new User({
@@ -184,6 +177,36 @@ async function seed() {
           designation: 'Senior Developer',
           department: 'Engineering',
           startDate: new Date('2023-01-15'),
+        },
+      ],
+      liveSelfieUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+      documents: [
+        {
+          documentType: 'Aadhaar Card',
+          fileName: 'rahul_aadhaar_card.pdf',
+          fileSize: '1.4 MB',
+          storageKey: 'restricted/acme_corp/candidates/rahul_sharma/aadhaar.pdf',
+          sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+          uploadedAt: new Date(Date.now() - 86400000 * 3),
+          status: 'verified',
+        },
+        {
+          documentType: 'Degree Certificate (MBA)',
+          fileName: 'pune_university_mba_degree.pdf',
+          fileSize: '2.1 MB',
+          storageKey: 'restricted/acme_corp/candidates/rahul_sharma/mba_cert.pdf',
+          sha256: '9f83c605ae7e08f1391eed857f406b760864f23f3719f86177304b50f14a3dc7',
+          uploadedAt: new Date(Date.now() - 86400000 * 2),
+          status: 'verified',
+        },
+        {
+          documentType: 'Relieving & Experience Letter',
+          fileName: 'infosys_relieving_letter.pdf',
+          fileSize: '950 KB',
+          storageKey: 'restricted/acme_corp/candidates/rahul_sharma/infosys_exp.pdf',
+          sha256: 'ca978112ca1bbdccafac231b39a23dc4da78608141966970f06410613183fb9d',
+          uploadedAt: new Date(Date.now() - 86400000 * 1),
+          status: 'verified',
         },
       ],
     });

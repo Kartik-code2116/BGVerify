@@ -58,13 +58,17 @@ export const candidateAPI = {
   create: (data) => api.post('/candidates', data),
   list: (params) => api.get('/candidates', { params }),
   getById: (id) => api.get(`/candidates/${id}`),
+  getMyRecord: () => api.get('/candidates/me/record'),
   giveConsent: (id) => api.patch(`/candidates/${id}/consent`),
+  uploadDocument: (id, data) => api.post(`/candidates/${id}/documents`, data),
+  uploadSelfie: (id, data) => api.post(`/candidates/${id}/selfie`, data),
 };
 
 // ─── Wallet Service ──────────────────────────────────────
 export const walletAPI = {
   getBalance: (params) => api.get('/wallet', { params }),
   getTransactions: (params) => api.get('/wallet/transactions', { params }),
+  purchase: (data) => api.post('/wallet/purchase', data),
   topUp: (data) => api.post('/wallet/topup', data),
 };
 

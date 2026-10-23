@@ -78,6 +78,70 @@ router.get(
   }
 );
 
+// POST /api/v1/wallet/purchase — company buys BGCoins package
+router.post(
+  '/purchase',
+  authorize('admin', 'org_owner', 'hr_admin'),
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const { packageAmount } = req.body;
+      const amount = parseInt(packageAmount);
+      if (!amount || amount <= 0) {
+        throw new BadRequestError('Invalid BGCoin package amount');
+      }
+
+      const orgId = req.user!.role === 'admin' && req.body.organizationId
+        ? req.body.organizationId
+        : req.user!.organizationId;
+
+      if (!orgId) throw new BadRequestError('Organization ID is required');
+
+      // Price mapping per documentation
+      let priceInr = 0;
+      if (amount === 100) priceInr = 9000;
+      else if (amount === 500) priceInr = 42500;
+      else if (amount === 1000) priceInr = 80000;
+      else priceInr = amount * 90; // Default pro-rated ₹90/coin
+
+      const wallet = await Wallet.findOneAndUpdate(
+        { organizationId: orgId },
+        {
+          $inc: { balance: amount, totalPurchased: amount },
+        },
+        { new: true, upsert: true }
+      );
+
+      await WalletTransaction.create({
+        walletId: wallet._id,
+        organizationId: orgId,
+        type: 'purchase',
+        amount,
+        balanceAfter: wallet.balance,
+        description: `Purchased package of ${amount} BGCoins (₹${priceInr.toLocaleString('en-IN')})`,
+        referenceType: 'purchase',
+        performedBy: req.user!.id,
+      });
+
+      await AuditLog.create({
+        userId: req.user!.id,
+        organizationId: orgId,
+        action: 'wallet.purchase',
+        resourceType: 'wallet',
+        resourceId: wallet._id.toString(),
+        details: { amount, priceInr, newBalance: wallet.balance },
+      });
+
+      res.status(200).json({
+        success: true,
+        message: `Successfully purchased ${amount} BGCoins!`,
+        data: wallet,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 // POST /api/v1/wallet/topup — admin top up wallet
 router.post(
   '/topup',

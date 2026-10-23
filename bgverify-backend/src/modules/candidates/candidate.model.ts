@@ -39,6 +39,16 @@ export interface ICandidate extends Document {
   }>;
   consentGiven: boolean;
   consentDate?: Date;
+  liveSelfieUrl?: string;
+  documents?: Array<{
+    documentType: string;
+    fileName: string;
+    fileSize?: string;
+    storageKey?: string;
+    sha256?: string;
+    uploadedAt: Date;
+    status: 'uploaded' | 'verified' | 'rejected';
+  }>;
   status: 'pending_consent' | 'active' | 'completed' | 'archived';
   createdAt: Date;
   updatedAt: Date;
@@ -133,6 +143,24 @@ const candidateSchema = new Schema<ICandidate>(
     consentDate: {
       type: Date,
     },
+    liveSelfieUrl: {
+      type: String,
+    },
+    documents: [
+      {
+        documentType: { type: String, required: true },
+        fileName: { type: String, required: true },
+        fileSize: String,
+        storageKey: String,
+        sha256: String,
+        uploadedAt: { type: Date, default: Date.now },
+        status: {
+          type: String,
+          enum: ['uploaded', 'verified', 'rejected'],
+          default: 'uploaded',
+        },
+      },
+    ],
     status: {
       type: String,
       enum: ['pending_consent', 'active', 'completed', 'archived'],
