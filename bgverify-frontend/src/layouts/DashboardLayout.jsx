@@ -16,6 +16,7 @@ import {
   ChevronDown,
   Search,
 } from 'lucide-react';
+import ThemeToggle from '../components/ThemeToggle';
 
 const navItems = {
   admin: [
@@ -141,6 +142,7 @@ export default function DashboardLayout() {
             </div>
           </div>
           <div className="header-right">
+            <ThemeToggle />
             <button className="notification-btn">
               <Bell size={20} />
               <span className="notification-dot"></span>

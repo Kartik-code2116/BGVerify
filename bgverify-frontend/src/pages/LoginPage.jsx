@@ -46,9 +46,13 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="login-page auth-page">
+    <div className="login-page auth-page auth-shell">
       <div className="login-bg-pattern" />
       <div className="auth-theme-toggle"><ThemeToggle /></div>
+      <aside className="auth-story">
+        <Link className="brand auth-story-brand" to="/"><span className="brand-mark"><Shield size={20}/></span><span>bgverify<span className="brand-dot">.</span></span></Link>
+        <div className="auth-story-content"><span className="auth-story-kicker">A CLEARER WAY TO VERIFY</span><h2>Every check has a person behind it.</h2><p>A thoughtful space for HR teams to review progress and for candidates to know what comes next.</p><div className="auth-illustration"><div className="auth-orbit auth-orbit-a"/><div className="auth-orbit auth-orbit-b"/><div className="auth-float-card"><span className="auth-float-icon"><Shield size={20}/></span><span><strong>Verification in progress</strong><small>Evidence ready for review</small></span><span className="auth-float-check">✓</span></div><div className="auth-float-dot">✓</div></div><div className="auth-story-foot"><span><Shield size={14}/> Private by design</span><span>People first, at every step</span></div></div>
+      </aside>
       <div className="login-card">
         <Link className="login-logo" to="/">
           <div className="logo-icon">
