@@ -20,6 +20,7 @@ import AdminAuditPage from './pages/admin/AdminAuditPage';
 import CompanyDashboardPage from './pages/company/CompanyDashboardPage';
 import CompanyVerificationsPage from './pages/company/CompanyVerificationsPage';
 import CandidatesPage from './pages/company/CandidatesPage';
+import HiringRolesPage from './pages/company/HiringRolesPage';
 import CompanyReviewQueuePage from './pages/company/CompanyReviewQueuePage';
 import CompanyWalletPage from './pages/company/CompanyWalletPage';
 
@@ -98,6 +99,7 @@ export default function App() {
             }
           >
             <Route index element={<CompanyDashboardPage />} />
+            <Route path="roles" element={<HiringRolesPage />} />
             <Route path="verifications" element={<CompanyVerificationsPage />} />
             <Route path="candidates" element={<CandidatesPage />} />
             <Route path="review" element={<CompanyReviewQueuePage />} />

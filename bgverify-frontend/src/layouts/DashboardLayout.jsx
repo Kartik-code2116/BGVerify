@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   Shield,
   Users,
+  Briefcase,
   FileSearch,
   Wallet,
   Building2,
@@ -28,8 +29,9 @@ const navItems = {
   ],
   company: [
     { to: '/company', icon: LayoutDashboard, label: 'Dashboard', end: true },
-    { to: '/company/verifications', icon: FileSearch, label: 'Verifications' },
+    { to: '/company/roles', icon: Briefcase, label: 'Roles & Sectors' },
     { to: '/company/candidates', icon: Users, label: 'Candidates' },
+    { to: '/company/verifications', icon: FileSearch, label: 'Verifications' },
     { to: '/company/review', icon: Shield, label: 'Review Queue' },
     { to: '/company/wallet', icon: Wallet, label: 'Wallet & BGCoins' },
   ],

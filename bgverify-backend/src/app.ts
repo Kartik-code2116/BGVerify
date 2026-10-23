@@ -14,6 +14,7 @@ import candidateRoutes from './modules/candidates/candidate.routes';
 import walletRoutes from './modules/wallet/wallet.routes';
 import organizationRoutes from './modules/organizations/organization.routes';
 import auditRoutes from './modules/audit/audit.routes';
+import roleRoutes from './modules/roles/role.routes';
 
 const app = express();
 
@@ -66,6 +67,7 @@ app.use(`${config.apiPrefix}/candidates`, candidateRoutes);
 app.use(`${config.apiPrefix}/wallet`, walletRoutes);
 app.use(`${config.apiPrefix}/organizations`, organizationRoutes);
 app.use(`${config.apiPrefix}/audit`, auditRoutes);
+app.use(`${config.apiPrefix}/roles`, roleRoutes);
 
 // ─── Error Handling ──────────────────────────────────────
 app.use(notFoundHandler);

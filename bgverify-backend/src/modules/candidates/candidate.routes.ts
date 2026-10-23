@@ -4,6 +4,7 @@ import { validate } from '../../middleware/validate';
 import { z } from 'zod';
 import { Candidate } from './candidate.model';
 import { User } from '../users/user.model';
+import { JobRole } from '../roles/role.model';
 import { NotFoundError } from '../../utils/errors';
 import { resumeParserService } from './resumeParser.service';
 
@@ -95,6 +96,11 @@ const createCandidateSchema = z.object({
       })
     )
     .optional(),
+  targetRole: z.string().optional(),
+  sector: z.string().optional(),
+  urgency: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
+  jobRoleId: z.string().optional(),
+  hiringStage: z.enum(['applied', 'verifying', 'cleared', 'flagged', 'hired', 'rejected']).optional(),
 });
 
 router.use(authenticate);
@@ -125,8 +131,13 @@ router.post(
         candidateUserId = existingUser._id;
       }
 
+      const candidatePayload = { ...req.body };
+      if (!candidatePayload.dateOfBirth || candidatePayload.dateOfBirth === '') {
+        delete candidatePayload.dateOfBirth;
+      }
+
       const candidate = new Candidate({
-        ...req.body,
+        ...candidatePayload,
         organizationId: req.user!.organizationId,
         submittedBy: req.user!.id,
         userId: candidateUserId,
@@ -159,11 +170,17 @@ router.get(
       }
 
       if (req.query.status) query.status = req.query.status;
+      if (req.query.sector && req.query.sector !== 'all') query.sector = req.query.sector;
+      if (req.query.urgency && req.query.urgency !== 'all') query.urgency = req.query.urgency;
+      if (req.query.hiringStage && req.query.hiringStage !== 'all') query.hiringStage = req.query.hiringStage;
+      if (req.query.jobRoleId) query.jobRoleId = req.query.jobRoleId;
       if (req.query.search) {
         query.$or = [
           { firstName: { $regex: req.query.search, $options: 'i' } },
           { lastName: { $regex: req.query.search, $options: 'i' } },
           { email: { $regex: req.query.search, $options: 'i' } },
+          { targetRole: { $regex: req.query.search, $options: 'i' } },
+          { sector: { $regex: req.query.search, $options: 'i' } },
         ];
       }
 
@@ -299,6 +316,56 @@ router.post(
       res.status(200).json({
         success: true,
         message: 'Live selfie captured and verified with liveness detection!',
+        data: candidate,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// PATCH /api/v1/candidates/:id/hiring-stage — HR updates candidate hiring stage (e.g. Cleared, Hired, Rejected)
+router.patch(
+  '/:id/hiring-stage',
+  authorize('admin', 'org_owner', 'hr_admin', 'hr_executive'),
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const { stage, notes } = req.body;
+      const validStages = ['applied', 'verifying', 'cleared', 'flagged', 'hired', 'rejected'];
+      if (!validStages.includes(stage)) {
+        return res.status(400).json({
+          success: false,
+          error: { message: `Invalid hiring stage. Must be one of: ${validStages.join(', ')}` },
+        });
+      }
+
+      const query: any = { _id: req.params.id };
+      if (req.user!.role !== 'admin') {
+        query.organizationId = req.user!.organizationId;
+      }
+
+      const candidate = await Candidate.findOne(query);
+      if (!candidate) throw new NotFoundError('Candidate not found');
+
+      const previousStage = candidate.hiringStage;
+      candidate.hiringStage = stage;
+      await candidate.save();
+
+      // If moved to 'hired', increment filledPositions on JobRole if associated
+      if (stage === 'hired' && previousStage !== 'hired') {
+        if (candidate.jobRoleId) {
+          await JobRole.findByIdAndUpdate(candidate.jobRoleId, { $inc: { filledPositions: 1 } });
+        } else if (candidate.targetRole) {
+          await JobRole.findOneAndUpdate(
+            { organizationId: candidate.organizationId, title: candidate.targetRole },
+            { $inc: { filledPositions: 1 } }
+          );
+        }
+      }
+
+      res.status(200).json({
+        success: true,
+        message: `Candidate hiring stage successfully updated to ${stage.toUpperCase()}`,
         data: candidate,
       });
     } catch (error) {

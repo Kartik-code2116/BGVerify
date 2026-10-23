@@ -73,6 +73,7 @@ export default function NewVerificationModal({ isOpen, onClose, onSuccess, initi
       setFormData((prev) => ({
         ...prev,
         candidateId,
+        priority: sel.urgency || prev.priority || 'medium',
         institution: edu.institution || '',
         degree: edu.degree || '',
         rollNumber: edu.rollNumber || '',
@@ -196,7 +197,7 @@ export default function NewVerificationModal({ isOpen, onClose, onSuccess, initi
                   <option value="">-- Choose Candidate --</option>
                   {candidates.map((c) => (
                     <option key={c._id} value={c._id}>
-                      {c.firstName} {c.lastName} ({c.email})
+                      {c.firstName} {c.lastName} {c.targetRole ? `— ${c.targetRole}` : ''} {c.sector ? `(${c.sector.split('&')[0].trim()})` : ''} {c.urgency === 'urgent' ? '🚨 [URGENT 24h]' : ''}
                     </option>
                   ))}
                 </select>

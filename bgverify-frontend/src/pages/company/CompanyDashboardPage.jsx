@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { verificationAPI, walletAPI } from '../../services/api';
+import { useNavigate } from 'react-router-dom';
+import { verificationAPI, walletAPI, roleAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import {
   FileCheck2,
@@ -10,6 +11,12 @@ import {
   ArrowUpRight,
   Eye,
   Sparkles,
+  Briefcase,
+  Flame,
+  Layers,
+  ChevronRight,
+  Users,
+  CheckCircle2,
 } from 'lucide-react';
 import NewVerificationModal from '../../components/NewVerificationModal';
 import TopUpModal from '../../components/TopUpModal';
@@ -18,8 +25,10 @@ import toast from 'react-hot-toast';
 
 export default function CompanyDashboardPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [wallet, setWallet] = useState(null);
+  const [rolesSummary, setRolesSummary] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // Modals
@@ -34,12 +43,16 @@ export default function CompanyDashboardPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [statsRes, walletRes] = await Promise.all([
+      const [statsRes, walletRes, rolesRes] = await Promise.all([
         verificationAPI.getStats(),
         walletAPI.getBalance(),
+        roleAPI.getSummary().catch(() => ({ data: { data: null } })),
       ]);
       setStats(statsRes.data.data);
       setWallet(walletRes.data.data);
+      if (rolesRes.data?.data) {
+        setRolesSummary(rolesRes.data.data);
+      }
     } catch (err) {
       console.error(err);
       toast.error('Failed to load dashboard data');
@@ -66,12 +79,17 @@ export default function CompanyDashboardPage() {
   const recentList = stats?.recentVerifications || [];
 
   return (
-    <div>
+    <div className="space-y-6">
       <div className="page-header">
         <div className="page-header-row">
           <div>
-            <h2>HR Verification Workspace</h2>
-            <p>Initiate automated checks, track verification progress, and manage your BGCoin credits</p>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="px-2.5 py-0.5 rounded text-xs font-semibold bg-primary-500/20 text-primary-300 border border-primary-500/30 flex items-center gap-1">
+                <Briefcase size={12} /> HR Talent & Verification Portal
+              </span>
+            </div>
+            <h2>HR Verification & Hiring Workspace</h2>
+            <p>Manage multi-sector hiring roles, expedite urgent background verifications, and monitor your BGCoin credits.</p>
           </div>
           <div style={{ display: 'flex', gap: '12px' }}>
             <button
@@ -93,7 +111,7 @@ export default function CompanyDashboardPage() {
       </div>
 
       {/* Top Banner: BGCoin Balance Card & KPI Summary */}
-      <div className="grid-3" style={{ marginBottom: '28px' }}>
+      <div className="grid-3">
         <div className="wallet-card" style={{ gridColumn: 'span 1' }}>
           <div className="wallet-balance-label">Available Balance</div>
           <div style={{ display: 'flex', alignItems: 'baseline' }}>
@@ -138,6 +156,84 @@ export default function CompanyDashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Sectors & Urgent Hiring Requisitions Widget */}
+      {rolesSummary && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Urgent Hiring Banner */}
+          <div className="card p-5 border-rose-500/40 bg-gradient-to-br from-slate-900 to-rose-950/20 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse">
+                  <Flame size={13} className="text-rose-400" />
+                  🚨 URGENT HIRING DRIVES
+                </span>
+                <span className="text-xs font-semibold text-rose-300">24h SLA</span>
+              </div>
+              <h3 className="text-lg font-bold text-white">
+                {rolesSummary.urgentRoles} Urgent Job Requisitions Active
+              </h3>
+              <p className="text-xs text-slate-300/80 mt-1 leading-relaxed">
+                You have {rolesSummary.urgentCandidatesCount} candidates in priority 24-hour turnaround background check pipeline.
+              </p>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-rose-500/20 flex items-center gap-2">
+              <button
+                onClick={() => navigate('/company/candidates?urgency=urgent')}
+                className="btn btn-sm bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs py-1.5 px-3 flex-1 flex items-center justify-center gap-1 shadow-md shadow-rose-600/30"
+              >
+                View Urgent Candidates <ChevronRight size={13} />
+              </button>
+              <button
+                onClick={() => navigate('/company/roles')}
+                className="btn btn-sm btn-secondary text-xs py-1.5 px-3"
+              >
+                Roles Engine
+              </button>
+            </div>
+          </div>
+
+          {/* Multi-Sector Breakdown */}
+          <div className="card p-5 lg:col-span-2">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Layers size={17} className="text-primary-400" />
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                  Company Hiring Distribution by Sector
+                </h3>
+              </div>
+              <button
+                onClick={() => navigate('/company/roles')}
+                className="text-xs text-primary-400 hover:text-primary-300 font-medium flex items-center gap-1"
+              >
+                Manage All Sectors <ArrowUpRight size={13} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
+              {rolesSummary.sectors?.slice(0, 4).map((s) => (
+                <div
+                  key={s.sector}
+                  onClick={() => navigate(`/company/candidates?sector=${encodeURIComponent(s.sector)}`)}
+                  className="p-3 rounded-lg border border-slate-700/80 bg-slate-800/40 hover:bg-slate-800 transition cursor-pointer group"
+                >
+                  <p className="text-xs font-semibold text-slate-300 line-clamp-1 group-hover:text-primary-300">
+                    {s.sector.split('&')[0]}
+                  </p>
+                  <div className="flex items-baseline gap-1 mt-1.5">
+                    <span className="text-lg font-bold text-white">{s.openings}</span>
+                    <span className="text-[10px] text-slate-400">vacancies</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    {s.candidatesCount} in pipeline
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Recent Verifications Table */}
       <div className="card">

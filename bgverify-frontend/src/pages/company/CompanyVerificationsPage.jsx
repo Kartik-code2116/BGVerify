@@ -119,19 +119,41 @@ export default function CompanyVerificationsPage() {
                         <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                           {v.candidateId?.email}
                         </div>
+                        {v.candidateId?.targetRole && (
+                          <div style={{ fontSize: '11px', color: '#38bdf8', marginTop: '2px' }}>
+                            {v.candidateId?.targetRole} {v.candidateId?.sector ? `• ${v.candidateId.sector.split('&')[0].trim()}` : ''}
+                          </div>
+                        )}
                       </td>
                       <td>
                         <span className="type-badge">{v.verificationType}</span>
                       </td>
                       <td>
-                        <span style={{
-                          fontSize: '11px',
-                          textTransform: 'uppercase',
-                          fontWeight: 600,
-                          color: v.priority === 'urgent' ? '#ef4444' : v.priority === 'high' ? '#f59e0b' : 'var(--text-secondary)'
-                        }}>
-                          {v.priority}
-                        </span>
+                        {v.priority === 'urgent' ? (
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            color: '#f43f5e',
+                            background: 'rgba(244, 63, 94, 0.15)',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            border: '1px solid rgba(244, 63, 94, 0.3)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                          }}>
+                            🚨 URGENT (24h)
+                          </span>
+                        ) : (
+                          <span style={{
+                            fontSize: '11px',
+                            textTransform: 'uppercase',
+                            fontWeight: 600,
+                            color: v.priority === 'high' ? '#f59e0b' : 'var(--text-secondary)'
+                          }}>
+                            {v.priority}
+                          </span>
+                        )}
                       </td>
                       <td>
                         <span className={`status-badge ${v.status}`}>

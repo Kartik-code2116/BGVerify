@@ -7,6 +7,7 @@ import { Organization } from '../modules/organizations/organization.model';
 import { Wallet, WalletTransaction } from '../modules/wallet/wallet.model';
 import { Candidate } from '../modules/candidates/candidate.model';
 import { Verification } from '../modules/verifications/verification.model';
+import { JobRole } from '../modules/roles/role.model';
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/bgverify';
 
@@ -131,6 +132,85 @@ async function seed() {
     await techWallet.save();
     console.log('🏢 TechStart Inc created: hiring@techstart.io / HrPass123!');
 
+    // ─── Create Sector Hiring Roles for Acme Corp ───────
+    const role1 = new JobRole({
+      title: 'Senior Full-Stack AI Engineer',
+      sector: 'Technology & IT',
+      department: 'Core Platform Engineering',
+      urgency: 'urgent',
+      openPositions: 4,
+      filledPositions: 1,
+      experienceLevel: 'senior',
+      locationType: 'hybrid',
+      location: 'Pune / Remote',
+      requiredChecks: ['education', 'employment', 'identity'],
+      targetJoiningDate: new Date(Date.now() + 86400000 * 7),
+      status: 'active',
+      description: 'Urgent hiring for AI Background Verification platform engineer. Requires TypeScript, React, Node.js and Playwright.',
+      organizationId: acmeCorp._id,
+      createdBy: hrUser._id,
+    });
+    await role1.save();
+
+    const role2 = new JobRole({
+      title: 'Financial Risk & Compliance Analyst',
+      sector: 'Financial Services & BFSI',
+      department: 'Risk, Audit & AML',
+      urgency: 'high',
+      openPositions: 2,
+      filledPositions: 1,
+      experienceLevel: 'mid',
+      locationType: 'onsite',
+      location: 'Mumbai BKC',
+      requiredChecks: ['education', 'employment', 'identity', 'criminal_record', 'credit_history'],
+      targetJoiningDate: new Date(Date.now() + 86400000 * 14),
+      status: 'active',
+      description: 'Mandatory CIBIL, credit history, criminal record and degree verification required for BFSI regulatory compliance.',
+      organizationId: acmeCorp._id,
+      createdBy: hrUser._id,
+    });
+    await role2.save();
+
+    const role3 = new JobRole({
+      title: 'Warehouse & Logistics Lead',
+      sector: 'Logistics & Supply Chain',
+      department: 'Supply Chain Operations',
+      urgency: 'urgent',
+      openPositions: 6,
+      filledPositions: 2,
+      experienceLevel: 'mid',
+      locationType: 'onsite',
+      location: 'Navi Mumbai Warehouse',
+      requiredChecks: ['identity', 'criminal_record', 'driving_license'],
+      targetJoiningDate: new Date(Date.now() + 86400000 * 3),
+      status: 'active',
+      description: 'Urgent 24h background check required for emergency inventory shift supervisor.',
+      organizationId: acmeCorp._id,
+      createdBy: hrUser._id,
+    });
+    await role3.save();
+
+    const role4 = new JobRole({
+      title: 'Clinical Research Specialist',
+      sector: 'Healthcare & Pharmaceuticals',
+      department: 'Medical Trials & Lab QA',
+      urgency: 'medium',
+      openPositions: 3,
+      filledPositions: 0,
+      experienceLevel: 'lead',
+      locationType: 'hybrid',
+      location: 'Bangalore BioPark',
+      requiredChecks: ['education', 'identity', 'employment'],
+      targetJoiningDate: new Date(Date.now() + 86400000 * 30),
+      status: 'active',
+      description: 'Medical council verification and university credentials check required.',
+      organizationId: acmeCorp._id,
+      createdBy: hrUser._id,
+    });
+    await role4.save();
+
+    console.log('💼 4 Sector Hiring Roles created for Acme Corp (Tech, Finance, Logistics, Healthcare)');
+
     // ─── Create Candidates for Acme Corp ────────────────
     const candidateUser1 = new User({
       email: 'rahul.sharma@example.com',
@@ -151,6 +231,12 @@ async function seed() {
       organizationId: acmeCorp._id,
       submittedBy: hrUser._id,
       userId: candidateUser1._id,
+      targetRole: 'Senior Full-Stack AI Engineer',
+      sector: 'Technology & IT',
+      urgency: 'urgent',
+      jobRoleId: role1._id,
+      hiringStage: 'cleared',
+      clearanceScore: 98,
       consentGiven: true,
       consentDate: new Date(),
       status: 'active',
@@ -230,6 +316,12 @@ async function seed() {
       organizationId: acmeCorp._id,
       submittedBy: hrUser._id,
       userId: candidateUser2._id,
+      targetRole: 'Financial Risk & Compliance Analyst',
+      sector: 'Financial Services & BFSI',
+      urgency: 'high',
+      jobRoleId: role2._id,
+      hiringStage: 'verifying',
+      clearanceScore: 75,
       consentGiven: true,
       consentDate: new Date(),
       status: 'active',
@@ -270,6 +362,12 @@ async function seed() {
       organizationId: acmeCorp._id,
       submittedBy: hrUser._id,
       userId: candidateUser3._id,
+      targetRole: 'Warehouse & Logistics Lead',
+      sector: 'Logistics & Supply Chain',
+      urgency: 'urgent',
+      jobRoleId: role3._id,
+      hiringStage: 'applied',
+      clearanceScore: 40,
       status: 'pending_consent',
     });
     await candidate3.save();

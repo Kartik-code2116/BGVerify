@@ -27,6 +27,8 @@ export interface ParsedResumeData {
     endDate: string;
   };
   skills: string[];
+  suggestedSector: string;
+  suggestedRole: string;
   ocrConfidence: number;
   extractedTextPreview: string;
   rawText: string;
@@ -324,6 +326,27 @@ export class ResumeParserService {
       }
     }
 
+    // Predict Suggested Sector and Role based on text & skills
+    let suggestedSector = 'Technology & IT';
+    let suggestedRole = designation || 'Software Engineer';
+
+    if (/\b(accounting|audit|cpa|chartered accountant|gst|tally|ledger|banking|wealth|equity|credit|cibil|portfolio)\b/i.test(cleanText)) {
+      suggestedSector = 'Financial Services & BFSI';
+      suggestedRole = designation || 'Financial Risk Analyst';
+    } else if (/\b(nurse|clinical|pharma|medical|patient|hospital|physician|doctor|healthcare|biomedical)\b/i.test(cleanText)) {
+      suggestedSector = 'Healthcare & Pharmaceuticals';
+      suggestedRole = designation || 'Clinical Healthcare Specialist';
+    } else if (/\b(supply chain|logistics|warehouse|procurement|inventory|fleet|transport|dispatch|shipping)\b/i.test(cleanText)) {
+      suggestedSector = 'Logistics & Supply Chain';
+      suggestedRole = designation || 'Operations & Logistics Lead';
+    } else if (/\b(sales|marketing|campaign|seo|sem|brand|b2b|customer success|client acquisition)\b/i.test(cleanText)) {
+      suggestedSector = 'Sales & Marketing';
+      suggestedRole = designation || 'Business Development Executive';
+    } else if (/\b(human resources|recruitment|talent acquisition|payroll|employee relations|onboarding)\b/i.test(cleanText)) {
+      suggestedSector = 'Human Resources';
+      suggestedRole = designation || 'HR Operations Specialist';
+    }
+
     return {
       firstName,
       lastName,
@@ -348,6 +371,8 @@ export class ResumeParserService {
         endDate: 'Present',
       },
       skills: skillsFound.length > 0 ? skillsFound : ['React.js', 'Node.js', 'TypeScript', 'Python'],
+      suggestedSector,
+      suggestedRole,
       ocrConfidence: 0.99,
       extractedTextPreview: cleanText.substring(0, 400),
       rawText: cleanText,

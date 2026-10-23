@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { candidateAPI } from '../../services/api';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { candidateAPI, roleAPI } from '../../services/api';
 import {
   Users,
   Plus,
@@ -21,17 +22,46 @@ import {
   Zap,
   Eye,
   AlertCircle,
+  Flame,
+  Clock,
+  Layers,
+  Filter,
+  Check,
+  ArrowRight,
+  ExternalLink,
+  ChevronRight,
+  X,
 } from 'lucide-react';
 import NewVerificationModal from '../../components/NewVerificationModal';
 import toast from 'react-hot-toast';
 
+const SECTORS = [
+  'All Sectors',
+  'Technology & IT',
+  'Financial Services & BFSI',
+  'Healthcare & Pharmaceuticals',
+  'Logistics & Supply Chain',
+  'Sales & Marketing',
+  'Human Resources',
+  'Operations & Administration',
+];
+
 export default function CandidatesPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+
   const [candidates, setCandidates] = useState([]);
+  const [activeRoles, setActiveRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [activeFormTab, setActiveFormTab] = useState('resume'); // 'resume' | 'personal' | 'academic' | 'employment'
+  const [activeFormTab, setActiveFormTab] = useState('resume'); // 'resume' | 'role' | 'personal' | 'academic' | 'employment'
   const [selectedCandidateForVerif, setSelectedCandidateForVerif] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Filters
+  const [sectorFilter, setSectorFilter] = useState(searchParams.get('sector') || 'All Sectors');
+  const [urgencyFilter, setUrgencyFilter] = useState('all');
+  const [stageFilter, setStageFilter] = useState('all');
 
   // Resume OCR Parser States
   const [isParsingResume, setIsParsingResume] = useState(false);
@@ -40,8 +70,15 @@ export default function CandidatesPage() {
   const [rawOcrText, setRawOcrText] = useState('');
   const [showOcrPreview, setShowOcrPreview] = useState(false);
 
-  // Form for new candidate/student
+  // Form for new candidate
   const [formData, setFormData] = useState({
+    // Role & Sector Assignment
+    targetRole: searchParams.get('targetRole') || '',
+    sector: searchParams.get('sector') || 'Technology & IT',
+    urgency: searchParams.get('urgency') || 'urgent',
+    jobRoleId: searchParams.get('jobRoleId') || '',
+    hiringStage: 'applied',
+
     // Personal Info
     firstName: '',
     lastName: '',
@@ -69,18 +106,40 @@ export default function CandidatesPage() {
 
   useEffect(() => {
     loadCandidates();
-  }, []);
+    loadRoles();
+
+    if (searchParams.get('new') === 'true') {
+      setIsAddModalOpen(true);
+      setActiveFormTab('role');
+    }
+  }, [sectorFilter, urgencyFilter, stageFilter]);
 
   const loadCandidates = async () => {
     setLoading(true);
     try {
-      const res = await candidateAPI.list();
+      const params = {};
+      if (sectorFilter && sectorFilter !== 'All Sectors') params.sector = sectorFilter;
+      if (urgencyFilter && urgencyFilter !== 'all') params.urgency = urgencyFilter;
+      if (stageFilter && stageFilter !== 'all') params.hiringStage = stageFilter;
+
+      const res = await candidateAPI.list(params);
       setCandidates(res.data.data.candidates || []);
     } catch (err) {
       console.error(err);
       toast.error('Failed to load candidate list');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadRoles = async () => {
+    try {
+      const res = await roleAPI.list({ status: 'active' });
+      if (res.data.success) {
+        setActiveRoles(res.data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to load open roles', err);
     }
   };
 
@@ -94,29 +153,32 @@ export default function CandidatesPage() {
     setOcrSuccess(false);
 
     try {
-      // Read actual file as base64
       const reader = new FileReader();
       reader.onload = async () => {
         try {
           const base64Data = reader.result;
-
           const res = await candidateAPI.parseResume({
-            fileName: file.name,
             fileBase64: base64Data,
+            fileName: file.name,
             mimeType: file.type,
           });
 
-          applyParsedData(res.data.data, file.name);
-        } catch (err) {
-          console.error('OCR processing error:', err);
-          toast.error(err.response?.data?.error?.message || 'OCR parsing failed on this document');
+          if (res.data && res.data.data) {
+            applyParsedData(res.data.data, file.name);
+          } else {
+            toast.error('Could not extract text from document');
+            setIsParsingResume(false);
+          }
+        } catch (apiErr) {
+          console.error('OCR Parsing API Error:', apiErr);
+          toast.error(apiErr.response?.data?.error?.message || 'OCR parsing failed on this document');
           setIsParsingResume(false);
         }
       };
 
       reader.onerror = () => {
+        toast.error('Failed to read file from disk');
         setIsParsingResume(false);
-        toast.error('Unable to read the selected file');
       };
 
       reader.readAsDataURL(file);
@@ -128,7 +190,8 @@ export default function CandidatesPage() {
   };
 
   const applyParsedData = (parsed, fileName) => {
-    setFormData({
+    setFormData((prev) => ({
+      ...prev,
       firstName: parsed.firstName || '',
       lastName: parsed.lastName || '',
       email: parsed.email || '',
@@ -136,18 +199,23 @@ export default function CandidatesPage() {
       dateOfBirth: parsed.dateOfBirth || '',
       aadhaarNumber: parsed.aadhaarNumber || '',
       panNumber: parsed.panNumber || '',
+      // Academic
       institution: parsed.education?.institution || '',
       degree: parsed.education?.degree || '',
       fieldOfStudy: parsed.education?.fieldOfStudy || '',
       rollNumber: parsed.education?.rollNumber || '',
       endYear: parsed.education?.endYear || 2024,
       grade: parsed.education?.grade || '',
+      // Employment
       company: parsed.employment?.company || '',
       designation: parsed.employment?.designation || '',
       employeeId: parsed.employment?.employeeId || '',
       startDate: parsed.employment?.startDate || '',
       endDate: parsed.employment?.endDate || '',
-    });
+      // Auto-suggested Role and Sector from OCR
+      sector: prev.sector && prev.sector !== 'Technology & IT' ? prev.sector : (parsed.suggestedSector || 'Technology & IT'),
+      targetRole: prev.targetRole ? prev.targetRole : (parsed.suggestedRole || parsed.employment?.designation || 'Software Engineer'),
+    }));
 
     setRawOcrText(parsed.rawText || parsed.extractedTextPreview || '');
     setOcrSuccess(true);
@@ -168,37 +236,33 @@ export default function CandidatesPage() {
         Date of Birth: 2002-04-12
         Aadhaar Number: 9182-4412-7712
 
-        EDUCATION:
-        Savitribai Phule Pune University
-        Degree: B.Tech in Computer Science & Engineering
-        PRN / Roll Number: 71928341
-        Graduation Year: 2025
-        Score: 8.92 CGPA (First Class with Distinction)
+        EDUCATION
+        B.Tech Computer Science, Savitribai Phule Pune University
+        Roll Number / PRN: 71928341
+        Graduation Year: 2024 | Grade: 9.1 / 10
 
-        PROJECTS & INTERNSHIPS:
-        Organization: Infosys Limited
-        Role: Frontend Engineering Intern
-        Employee ID: INF-55192
-        Duration: Jan 2024 - May 2024
+        EXPERIENCE
+        Full Stack Intern, TechStart Solutions
+        Employee ID: TS-9921
+        Duration: Jan 2024 - June 2024
+        Skills: React.js, Node.js, Python, TypeScript
       `
         : `
         Vikram Malhotra
-        vikram.malhotra@techcorp.io | +91-9876543210
-        Date of Birth: 1996-09-18
-        PAN Number: ABCVM9182X
+        vikram.malhotra@example.com | +91-9876543210
+        Date of Birth: 1996-08-20
+        PAN Number: ABCPM9921K
 
-        EDUCATION:
-        Indian Institute of Technology (IIT Bombay)
-        Degree: Master of Technology (M.Tech) in Computer Science
-        Roll Number: IITB-CS-2020-41
-        Passing Year: 2022
-        Grade: 9.4 CGPA
+        EDUCATION
+        Master of Business Administration (Finance), Symbiosis University
+        Roll Number: SYM-MBA-2018-442
+        Passing Year: 2020 | Grade: 8.8 / 10
 
-        PROFESSIONAL EXPERIENCE:
-        Tata Consultancy Services (TCS)
-        Designation: Senior Software Engineer
+        PROFESSIONAL EXPERIENCE
+        Senior Financial Analyst, Tata Consultancy Services (TCS)
         Employee ID: TCS-88219
         Tenure: July 2022 - Present
+        Skills: Financial Modeling, Risk Audit, Portfolio Management, GST
       `;
 
     try {
@@ -211,6 +275,27 @@ export default function CandidatesPage() {
       console.error(err);
       toast.error('Failed to parse sample resume');
       setIsParsingResume(false);
+    }
+  };
+
+  const handleSelectRolePreset = (role) => {
+    setFormData((prev) => ({
+      ...prev,
+      targetRole: role.title,
+      sector: role.sector,
+      urgency: role.urgency,
+      jobRoleId: role._id,
+    }));
+    toast.success(`Assigned to "${role.title}" (${role.sector})`);
+  };
+
+  const handleMarkHired = async (candidateId, name) => {
+    try {
+      await candidateAPI.updateHiringStage(candidateId, 'hired');
+      toast.success(`🎉 ${name} has been officially marked as HIRED!`);
+      loadCandidates();
+    } catch (err) {
+      toast.error('Failed to update candidate hiring stage');
     }
   };
 
@@ -231,6 +316,11 @@ export default function CandidatesPage() {
         dateOfBirth: formData.dateOfBirth || undefined,
         aadhaarNumber: formData.aadhaarNumber || undefined,
         panNumber: formData.panNumber || undefined,
+        targetRole: formData.targetRole || 'Software Engineer',
+        sector: formData.sector || 'Technology & IT',
+        urgency: formData.urgency || 'medium',
+        jobRoleId: formData.jobRoleId || undefined,
+        hiringStage: formData.hiringStage || 'applied',
         education: formData.institution
           ? [
               {
@@ -260,26 +350,6 @@ export default function CandidatesPage() {
       toast.success('Candidate profile registered with verified credentials!');
       setIsAddModalOpen(false);
       setOcrSuccess(false);
-      setFormData({
-        firstName: '',
-        lastName: '',
-        email: '',
-        phone: '',
-        dateOfBirth: '',
-        aadhaarNumber: '',
-        panNumber: '',
-        institution: '',
-        degree: '',
-        fieldOfStudy: '',
-        rollNumber: '',
-        endYear: new Date().getFullYear(),
-        grade: '',
-        company: '',
-        designation: '',
-        employeeId: '',
-        startDate: '',
-        endDate: '',
-      });
       loadCandidates();
     } catch (err) {
       console.error(err);
@@ -290,156 +360,390 @@ export default function CandidatesPage() {
     }
   };
 
+  const getSectorBadge = (sector) => {
+    if (!sector) return null;
+    let color = 'bg-slate-700 text-slate-300 border-slate-600';
+    if (sector.includes('Tech')) color = 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30';
+    else if (sector.includes('Finan') || sector.includes('BFSI')) color = 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+    else if (sector.includes('Health')) color = 'bg-rose-500/15 text-rose-300 border-rose-500/30';
+    else if (sector.includes('Logis')) color = 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+    else if (sector.includes('Sales')) color = 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30';
+
+    return (
+      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold border ${color}`}>
+        <Layers size={10} />
+        {sector.split('&')[0].trim()}
+      </span>
+    );
+  };
+
+  const getUrgencyBadge = (urgency) => {
+    if (urgency === 'urgent') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse">
+          <Flame size={11} className="text-rose-400" />
+          URGENT (24h)
+        </span>
+      );
+    }
+    if (urgency === 'high') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+          <Clock size={11} className="text-amber-400" />
+          HIGH PRIORITY
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] text-slate-400 bg-slate-800 border border-slate-700">
+        Standard
+      </span>
+    );
+  };
+
+  const getHiringStageBadge = (stage) => {
+    switch (stage) {
+      case 'cleared':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+            <CheckCircle2 size={12} className="text-emerald-400" />
+            Cleared for Hire
+          </span>
+        );
+      case 'hired':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-500/20 text-blue-300 border border-blue-500/40">
+            <Check size={12} className="text-blue-400" />
+            Hired & Onboarded
+          </span>
+        );
+      case 'verifying':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30">
+            <Clock size={12} className="text-amber-400" />
+            Under Verification
+          </span>
+        );
+      case 'flagged':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40">
+            <AlertCircle size={12} className="text-rose-400" />
+            Discrepancy Flagged
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs text-slate-400 bg-slate-800 border border-slate-700">
+            Applied / In Review
+          </span>
+        );
+    }
+  };
+
   return (
-    <div>
-      <div className="page-header">
-        <div className="page-header-row">
-          <div>
-            <h2>Candidate & Student Directory</h2>
-            <p>Upload candidate resumes to auto-fill details via OCR, review credentials, and dispatch Playwright verification checks</p>
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-primary-500/20 text-primary-300 border border-primary-500/30 flex items-center gap-1">
+              <Users size={13} />
+              Candidate & Student Directory
+            </span>
+            <span className="text-xs text-slate-400">Multi-Sector Hiring Workspace</span>
           </div>
-          <button className="btn btn-primary" onClick={() => setIsAddModalOpen(true)}>
-            <Plus size={16} /> Add Candidate / Student
+          <h1 className="text-2xl font-bold text-white mt-1">Candidates & Sector Requisitions</h1>
+          <p className="text-sm text-slate-400">
+            Auto-fill candidate credentials with OCR, review education/employment verification, and expedite urgent hires.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/company/roles')}
+            className="btn btn-secondary flex items-center gap-1.5 text-xs"
+          >
+            <Briefcase size={15} />
+            Manage Roles & Sectors
+          </button>
+
+          <button
+            onClick={() => {
+              setIsAddModalOpen(true);
+              setActiveFormTab('resume');
+            }}
+            className="btn btn-primary flex items-center gap-2 shadow-lg shadow-primary-500/20 text-xs"
+          >
+            <Plus size={16} />
+            Add Candidate / Student
           </button>
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-body" style={{ padding: 0 }}>
-          {loading ? (
-            <div className="loading-inline">
-              <div className="loading-spinner"></div>
-            </div>
-          ) : candidates.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-icon">
-                <Users size={32} />
-              </div>
-              <h3>No candidates added yet</h3>
-              <p>Add candidate or student profiles to initiate autonomous background verification</p>
-            </div>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Candidate / Student</th>
-                    <th>Contact & Identity</th>
-                    <th>Consent Status</th>
-                    <th>Academic Credentials</th>
-                    <th>Work Experience</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {candidates.map((c) => {
-                    const topEdu = c.education?.[0];
-                    const topEmp = c.employment?.[0];
+      {/* Filter Toolbar */}
+      <div className="card p-4 space-y-3">
+        {/* Sector Tabs */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+          {SECTORS.map((sec) => (
+            <button
+              key={sec}
+              onClick={() => setSectorFilter(sec)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition ${
+                sectorFilter === sec
+                  ? 'bg-primary-500 text-white shadow-md shadow-primary-500/30'
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              {sec}
+            </button>
+          ))}
+        </div>
 
-                    return (
-                      <tr key={c._id}>
-                        <td style={{ fontWeight: 600 }}>
-                          <div style={{ fontSize: '15px' }}>{c.firstName} {c.lastName}</div>
-                          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                            ID: {c._id.substring(0, 8)}...
-                          </div>
-                        </td>
-                        <td>
-                          <div style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Mail size={12} color="var(--text-muted)" /> {c.email}
-                          </div>
-                          {c.phone && (
-                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <Phone size={12} /> {c.phone}
-                            </div>
-                          )}
-                        </td>
-                        <td>
-                          {c.consentGiven ? (
-                            <span className="status-badge completed">
-                              Consent Signed
-                            </span>
-                          ) : (
-                            <span className="status-badge pending_consent">
-                              Consent Pending
-                            </span>
-                          )}
-                        </td>
-                        <td>
-                          {topEdu ? (
-                            <div>
-                              <div style={{ fontSize: '13px', fontWeight: 600 }}>{topEdu.degree}</div>
-                              <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                                {topEdu.institution}
-                                {topEdu.endYear ? ` (${topEdu.endYear})` : ''}
-                              </div>
-                              {topEdu.rollNumber && (
-                                <div style={{ fontSize: '11px', color: '#38bdf8', fontFamily: 'monospace' }}>
-                                  Roll: {topEdu.rollNumber}
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Not specified</span>
-                          )}
-                        </td>
-                        <td>
-                          {topEmp ? (
-                            <div>
-                              <div style={{ fontSize: '13px', fontWeight: 600 }}>{topEmp.designation}</div>
-                              <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{topEmp.company}</div>
-                              {topEmp.employeeId && (
-                                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                                  Emp ID: {topEmp.employeeId}
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Fresh Graduate</span>
-                          )}
-                        </td>
-                        <td>
-                          <button
-                            className="btn btn-primary btn-sm"
-                            onClick={() => setSelectedCandidateForVerif(c._id)}
-                          >
-                            <ShieldCheck size={14} />
-                            Verify
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+        {/* Priority & Stage Filters */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-700/60 text-xs">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-400 flex items-center gap-1">
+                <Filter size={13} /> Urgency:
+              </span>
+              <select
+                value={urgencyFilter}
+                onChange={(e) => setUrgencyFilter(e.target.value)}
+                className="form-select py-1 px-2 text-xs"
+                style={{ width: 'auto' }}
+              >
+                <option value="all">All Priorities</option>
+                <option value="urgent">🚨 Urgent (24h) Only</option>
+                <option value="high">High Priority</option>
+                <option value="medium">Standard</option>
+              </select>
             </div>
-          )}
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-400">Stage:</span>
+              <select
+                value={stageFilter}
+                onChange={(e) => setStageFilter(e.target.value)}
+                className="form-select py-1 px-2 text-xs"
+                style={{ width: 'auto' }}
+              >
+                <option value="all">All Stages</option>
+                <option value="cleared">Ready to Hire (Cleared)</option>
+                <option value="hired">Hired & Onboarded</option>
+                <option value="verifying">Under Verification</option>
+                <option value="flagged">Discrepancy Flagged</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="text-slate-400 text-xs">
+            Showing <strong className="text-white">{candidates.length}</strong> candidates
+          </div>
         </div>
       </div>
 
-      {/* Add Candidate Modal with Real Resume OCR */}
+      {/* Candidates Data Table */}
+      <div className="card overflow-hidden">
+        {loading ? (
+          <div className="p-12 text-center">
+            <div className="loading-spinner mx-auto mb-3"></div>
+            <p className="text-slate-400 text-sm">Loading candidates across sectors...</p>
+          </div>
+        ) : candidates.length === 0 ? (
+          <div className="p-12 text-center border-dashed">
+            <Users size={40} className="mx-auto text-slate-600 mb-3" />
+            <h3 className="text-base font-semibold text-white">No Candidates Found</h3>
+            <p className="text-sm text-slate-400 mt-1 max-w-md mx-auto">
+              No candidates match the selected sector or urgency filter. Click "Add Candidate" or reset the filters.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Candidate</th>
+                  <th>Role & Sector</th>
+                  <th>Urgency</th>
+                  <th>Verification Stage</th>
+                  <th>Academic / PRN</th>
+                  <th>Work Experience</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {candidates.map((c) => {
+                  const topEdu = c.education?.[0];
+                  const topEmp = c.employment?.[0];
+
+                  return (
+                    <tr
+                      key={c._id}
+                      style={{
+                        background: c.urgency === 'urgent' ? 'rgba(244, 63, 94, 0.04)' : undefined,
+                      }}
+                    >
+                      {/* Candidate Column */}
+                      <td>
+                        <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {c.firstName} {c.lastName}
+                          {c.consentGiven && (
+                            <CheckCircle2 size={13} color="#34d399" title="DPDP Consent Signed" />
+                          )}
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                          <Mail size={11} /> {c.email}
+                        </div>
+                        {c.phone && (
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                            <Phone size={10} /> {c.phone}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Role & Sector Column */}
+                      <td>
+                        <div style={{ fontWeight: 600, fontSize: '12px', color: 'var(--text-primary)' }}>
+                          {c.targetRole || 'Software Engineer'}
+                        </div>
+                        <div style={{ marginTop: '4px' }}>{getSectorBadge(c.sector || 'Technology & IT')}</div>
+                      </td>
+
+                      {/* Urgency Column */}
+                      <td>{getUrgencyBadge(c.urgency)}</td>
+
+                      {/* Hiring & Verification Stage */}
+                      <td>
+                        {getHiringStageBadge(c.hiringStage)}
+                        {c.clearanceScore > 0 && (
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                            Score: <strong style={{ color: '#34d399' }}>{c.clearanceScore}%</strong> match
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Academic / PRN */}
+                      <td>
+                        {topEdu ? (
+                          <div>
+                            <div style={{ fontSize: '13px', fontWeight: 600 }}>{topEdu.degree}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                              {topEdu.institution} {topEdu.endYear ? `(${topEdu.endYear})` : ''}
+                            </div>
+                            {topEdu.rollNumber && (
+                              <div style={{ fontSize: '11px', color: '#38bdf8', fontFamily: 'monospace', marginTop: '2px' }}>
+                                PRN/Roll: {topEdu.rollNumber}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Not provided</span>
+                        )}
+                      </td>
+
+                      {/* Work Experience */}
+                      <td>
+                        {topEmp ? (
+                          <div>
+                            <div style={{ fontSize: '13px', fontWeight: 600 }}>{topEmp.designation}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{topEmp.company}</div>
+                            {topEmp.employeeId && (
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace', marginTop: '2px' }}>
+                                ID: {topEmp.employeeId}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Fresh Graduate</span>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+                          {c.hiringStage === 'cleared' && (
+                            <button
+                              onClick={() => handleMarkHired(c._id, `${c.firstName} ${c.lastName}`)}
+                              className="btn btn-sm"
+                              style={{
+                                background: '#059669',
+                                color: 'white',
+                                fontSize: '12px',
+                                padding: '4px 10px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                              }}
+                              title="Officially hire candidate and update requisition filled headcount"
+                            >
+                              <Check size={13} />
+                              Hire Now
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => setSelectedCandidateForVerif(c._id)}
+                            className="btn btn-secondary btn-sm"
+                            style={{ fontSize: '12px', padding: '4px 10px' }}
+                          >
+                            <ShieldCheck size={13} color="#38bdf8" />
+                            Verify
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ─── REGISTER CANDIDATE & ASSIGN ROLE MODAL ────────────────── */}
       {isAddModalOpen && (
         <div className="modal-overlay" onClick={() => setIsAddModalOpen(false)}>
-          <div className="modal" style={{ maxWidth: '740px' }} onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal"
+            style={{
+              maxWidth: '780px',
+              width: '95%',
+              maxHeight: '92vh',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
             <div className="modal-header">
               <div>
-                <h3>Register Candidate / Student</h3>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  Upload a PDF or Image resume for OCR text extraction & auto-fill
+                <h3>Register Candidate & Assign Role</h3>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  Upload resume for OCR auto-extraction, configure job requisition sector & credentials
                 </p>
               </div>
               <button className="modal-close" onClick={() => setIsAddModalOpen(false)}>
-                &times;
+                <X size={18} />
               </button>
             </div>
 
-            {/* Navigation tabs inside modal */}
-            <div style={{ display: 'flex', borderBottom: '1px solid var(--border-subtle)', padding: '0 20px', background: 'var(--bg-elevated)', overflowX: 'auto' }}>
+            {/* Modal Navigation Tabs */}
+            <div
+              style={{
+                display: 'flex',
+                borderBottom: '1px solid var(--border-subtle)',
+                background: 'var(--bg-elevated)',
+                padding: '0 16px',
+                overflowX: 'auto',
+                gap: '4px',
+              }}
+            >
               {[
                 { id: 'resume', label: '⚡ Resume OCR Scanner', icon: Sparkles, badge: ocrSuccess ? 'Parsed' : null },
+                { id: 'role', label: '🎯 Sector & Role', icon: Briefcase },
                 { id: 'personal', label: '1. Personal Details', icon: UserCheck },
-                { id: 'academic', label: '2. Academic / Student', icon: GraduationCap },
-                { id: 'employment', label: '3. Employment', icon: Briefcase },
+                { id: 'academic', label: '2. Academic / PRN', icon: GraduationCap },
+                { id: 'employment', label: '3. Employment', icon: Layers },
               ].map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeFormTab === tab.id;
@@ -463,10 +767,18 @@ export default function CandidatesPage() {
                       whiteSpace: 'nowrap',
                     }}
                   >
-                    <Icon size={16} />
+                    <Icon size={15} />
                     <span>{tab.label}</span>
                     {tab.badge && (
-                      <span style={{ fontSize: '10px', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', padding: '1px 6px', borderRadius: '10px' }}>
+                      <span
+                        style={{
+                          fontSize: '10px',
+                          background: 'rgba(16, 185, 129, 0.2)',
+                          color: '#34d399',
+                          padding: '1px 6px',
+                          borderRadius: '10px',
+                        }}
+                      >
                         {tab.badge}
                       </span>
                     )}
@@ -475,22 +787,24 @@ export default function CandidatesPage() {
               })}
             </div>
 
-            {/* Success notification banner after OCR */}
+            {/* OCR Extracted Notification Banner */}
             {ocrSuccess && (
-              <div style={{
-                background: 'rgba(16, 185, 129, 0.1)',
-                borderBottom: '1px solid rgba(16, 185, 129, 0.2)',
-                padding: '12px 24px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                fontSize: '12px',
-                color: '#34d399',
-              }}>
+              <div
+                style={{
+                  background: 'rgba(16, 185, 129, 0.1)',
+                  borderBottom: '1px solid rgba(16, 185, 129, 0.2)',
+                  padding: '10px 20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: '12px',
+                  color: '#34d399',
+                }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <CheckCircle2 size={16} />
                   <span>
-                    <strong>OCR Parsed ({parsedFileName}):</strong> Extracted {formData.firstName} {formData.lastName} ({formData.institution})
+                    <strong>OCR Parsed:</strong> {formData.firstName} {formData.lastName} ({formData.institution})
                   </span>
                 </div>
                 <button
@@ -500,7 +814,7 @@ export default function CandidatesPage() {
                     background: 'transparent',
                     border: '1px solid rgba(16, 185, 129, 0.4)',
                     color: '#34d399',
-                    padding: '3px 8px',
+                    padding: '2px 8px',
                     borderRadius: '6px',
                     cursor: 'pointer',
                     fontSize: '11px',
@@ -516,36 +830,41 @@ export default function CandidatesPage() {
             )}
 
             {showOcrPreview && rawOcrText && (
-              <div style={{
-                padding: '12px 24px',
-                background: '#0a0e1a',
-                borderBottom: '1px solid var(--border-subtle)',
-                maxHeight: '140px',
-                overflowY: 'auto',
-                fontFamily: 'monospace',
-                fontSize: '11px',
-                color: '#94a3b8',
-                whiteSpace: 'pre-wrap',
-              }}>
+              <div
+                style={{
+                  padding: '12px 20px',
+                  background: '#0a0e1a',
+                  borderBottom: '1px solid var(--border-subtle)',
+                  maxHeight: '130px',
+                  overflowY: 'auto',
+                  fontFamily: 'monospace',
+                  fontSize: '11px',
+                  color: '#94a3b8',
+                  whiteSpace: 'pre-wrap',
+                }}
+              >
                 {rawOcrText}
               </div>
             )}
 
-            <form onSubmit={handleAddCandidate}>
-              <div className="modal-body" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+            {/* Form Content */}
+            <form onSubmit={handleAddCandidate} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              <div className="modal-body" style={{ overflowY: 'auto', flex: 1, padding: '24px' }}>
                 {/* ─── TAB 0: RESUME OCR PARSER ─────────────────────── */}
                 {activeFormTab === 'resume' && (
                   <div>
-                    <div style={{
-                      border: '2px dashed var(--border-default)',
-                      borderRadius: '16px',
-                      padding: '32px 20px',
-                      textAlign: 'center',
-                      background: 'rgba(59, 130, 246, 0.03)',
-                      marginBottom: '20px',
-                      position: 'relative',
-                      cursor: 'pointer',
-                    }}>
+                    <div
+                      style={{
+                        border: '2px dashed var(--border-default)',
+                        borderRadius: '16px',
+                        padding: '32px 20px',
+                        textAlign: 'center',
+                        background: 'rgba(59, 130, 246, 0.03)',
+                        marginBottom: '20px',
+                        position: 'relative',
+                        cursor: 'pointer',
+                      }}
+                    >
                       <input
                         type="file"
                         accept=".pdf,.png,.jpg,.jpeg,.webp,.txt"
@@ -559,121 +878,248 @@ export default function CandidatesPage() {
                           height: '100%',
                         }}
                       />
-                      <div style={{
-                        width: 50,
-                        height: 50,
-                        borderRadius: 14,
-                        background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'white',
-                        margin: '0 auto 14px',
-                      }}>
-                        {isParsingResume ? (
-                          <Loader2 size={24} className="loading-spinner" />
-                        ) : (
-                          <UploadCloud size={24} />
-                        )}
+                      <div
+                        style={{
+                          width: 50,
+                          height: 50,
+                          borderRadius: 14,
+                          background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'white',
+                          margin: '0 auto 12px auto',
+                        }}
+                      >
+                        {isParsingResume ? <Loader2 size={24} className="animate-spin" /> : <UploadCloud size={24} />}
                       </div>
-                      <h4 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '6px' }}>
-                        {isParsingResume ? 'Running PDF & Tesseract OCR Analysis...' : 'Drop Real Candidate Resume / CV Here'}
+                      <h4 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                        {isParsingResume ? 'Scanning Resume with OCR Engine...' : 'Drop Candidate Resume (PDF / Image)'}
                       </h4>
-                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '440px', margin: '0 auto 14px' }}>
-                        Upload your real PDF, PNG, or JPG resume file. The OCR engine reads the actual text bytes from your document and automatically extracts Name, Roll Number, Degree, and Experience.
+                      <p style={{ fontSize: '12px', color: 'var(--text-muted)', maxWidth: '420px', margin: '0 auto' }}>
+                        Supports native PDF text and Tesseract image OCR. Automatically extracts candidate name, education, roll/PRN, previous jobs, and suggests sector.
                       </p>
-                      <button type="button" className="btn btn-secondary btn-sm" style={{ pointerEvents: 'none' }}>
-                        Browse Document
-                      </button>
                     </div>
 
-                    {/* Pre-Loaded Sample Resumes for 1-Click Testing */}
-                    <div style={{
-                      background: 'var(--bg-elevated)',
-                      padding: '16px 20px',
-                      borderRadius: '14px',
-                      border: '1px solid var(--border-subtle)',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                        <Zap size={16} color="#f59e0b" />
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                          Try 1-Click Sample Resumes (Demo Mode)
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    {/* Quick Sample Resume Buttons */}
+                    <div style={{ marginTop: '16px' }}>
+                      <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Zap size={14} color="#f59e0b" /> Or test with pre-built candidate resumes:
+                      </p>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                         <button
                           type="button"
                           className="btn btn-secondary btn-sm"
                           onClick={() => handleLoadSampleResume('student')}
                           disabled={isParsingResume}
+                          style={{ fontSize: '12px', justifyContent: 'flex-start', padding: '10px 14px' }}
                         >
-                          <GraduationCap size={14} color="#38bdf8" />
-                          Student / Fresher Resume (SPPU 2025)
+                          <GraduationCap size={15} color="#38bdf8" />
+                          <span>Ananya Verma (Student — VIT Pune)</span>
                         </button>
                         <button
                           type="button"
                           className="btn btn-secondary btn-sm"
-                          onClick={() => handleLoadSampleResume('experienced')}
+                          onClick={() => handleLoadSampleResume('professional')}
                           disabled={isParsingResume}
+                          style={{ fontSize: '12px', justifyContent: 'flex-start', padding: '10px 14px' }}
                         >
-                          <Briefcase size={14} color="#a855f7" />
-                          Senior Engineer Resume (IITB / TCS)
+                          <Briefcase size={15} color="#34d399" />
+                          <span>Vikram Malhotra (Senior Analyst — TCS)</span>
                         </button>
                       </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
+                      <button
+                        type="button"
+                        onClick={() => setActiveFormTab('role')}
+                        className="btn btn-primary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        Assign Job Role & Sector <ChevronRight size={14} />
+                      </button>
                     </div>
                   </div>
                 )}
 
-                {/* ─── TAB 1: PERSONAL & CONTACT ─────────────────────── */}
+                {/* ─── TAB 1: SECTOR & ROLE ASSIGNMENT ───────────────── */}
+                {activeFormTab === 'role' && (
+                  <div>
+                    {/* Active Requisitions Quick-Picker */}
+                    {activeRoles.length > 0 && (
+                      <div style={{ marginBottom: '20px' }}>
+                        <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>Select from Active Company Requisitions:</span>
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Click to auto-populate</span>
+                        </label>
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+                            gap: '10px',
+                            maxHeight: '160px',
+                            overflowY: 'auto',
+                            padding: '4px',
+                          }}
+                        >
+                          {activeRoles.map((r) => {
+                            const isSelected = formData.jobRoleId === r._id;
+                            return (
+                              <div
+                                key={r._id}
+                                onClick={() => handleSelectRolePreset(r)}
+                                style={{
+                                  padding: '10px 12px',
+                                  borderRadius: '10px',
+                                  border: isSelected ? '1px solid #3b82f6' : '1px solid var(--border-default)',
+                                  background: isSelected ? 'rgba(59, 130, 246, 0.12)' : 'var(--bg-elevated)',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease',
+                                }}
+                              >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                    {r.title}
+                                  </span>
+                                  {r.urgency === 'urgent' && (
+                                    <span style={{ fontSize: '10px', color: '#f43f5e', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                      <Flame size={10} /> Urgent
+                                    </span>
+                                  )}
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                  <span>{r.sector}</span>
+                                  <span>•</span>
+                                  <span>{r.openPositions} Openings</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid-2">
+                      <div className="form-group">
+                        <label className="form-label">Target Job Role *</label>
+                        <input
+                          type="text"
+                          required
+                          className="form-input"
+                          placeholder="e.g. Lead AI Engineer, Financial Analyst, Shift Lead"
+                          value={formData.targetRole}
+                          onChange={(e) => setFormData({ ...formData, targetRole: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">Sector / Industry *</label>
+                        <select
+                          className="form-select"
+                          value={formData.sector}
+                          onChange={(e) => setFormData({ ...formData, sector: e.target.value })}
+                        >
+                          {SECTORS.filter((s) => s !== 'All Sectors').map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid-2">
+                      <div className="form-group">
+                        <label className="form-label">Hiring Urgency / Priority *</label>
+                        <select
+                          className="form-select"
+                          value={formData.urgency}
+                          onChange={(e) => setFormData({ ...formData, urgency: e.target.value })}
+                        >
+                          <option value="urgent">🚨 Urgent (Immediate 24h Turnaround)</option>
+                          <option value="high">⚡ High Priority (48h Turnaround)</option>
+                          <option value="medium">Standard Priority (3 - 5 Days)</option>
+                          <option value="low">Low Priority (Flexible Pipeline)</option>
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">Candidate Hiring Stage</label>
+                        <select
+                          className="form-select"
+                          value={formData.hiringStage}
+                          onChange={(e) => setFormData({ ...formData, hiringStage: e.target.value })}
+                        >
+                          <option value="applied">Applied / Candidate Review</option>
+                          <option value="verifying">Initiate Verification</option>
+                          <option value="cleared">Pre-Approved / Cleared</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
+                      <button
+                        type="button"
+                        onClick={() => setActiveFormTab('resume')}
+                        className="btn btn-secondary btn-sm"
+                      >
+                        Back
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveFormTab('personal')}
+                        className="btn btn-primary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        Continue to Personal Info <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ─── TAB 2: PERSONAL DETAILS ──────────────────────── */}
                 {activeFormTab === 'personal' && (
                   <div>
                     <div className="grid-2">
                       <div className="form-group">
-                        <label className="form-label">
-                          First Name * {ocrSuccess && <span style={{ color: '#34d399', fontSize: '11px' }}>✨ OCR Extracted</span>}
-                        </label>
+                        <label className="form-label">First Name *</label>
                         <input
                           type="text"
+                          required
                           className="form-input"
                           placeholder="e.g. Rahul"
                           value={formData.firstName}
                           onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                          required
                         />
                       </div>
                       <div className="form-group">
-                        <label className="form-label">
-                          Last Name * {ocrSuccess && <span style={{ color: '#34d399', fontSize: '11px' }}>✨ OCR Extracted</span>}
-                        </label>
+                        <label className="form-label">Last Name *</label>
                         <input
                           type="text"
+                          required
                           className="form-input"
                           placeholder="e.g. Sharma"
                           value={formData.lastName}
                           onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                          required
                         />
                       </div>
                     </div>
 
                     <div className="grid-2">
                       <div className="form-group">
-                        <label className="form-label">
-                          Email Address * {ocrSuccess && <span style={{ color: '#34d399', fontSize: '11px' }}>✨ OCR Extracted</span>}
-                        </label>
+                        <label className="form-label">Email Address *</label>
                         <input
                           type="email"
+                          required
                           className="form-input"
                           placeholder="candidate@example.com"
                           value={formData.email}
                           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                          required
                         />
                       </div>
                       <div className="form-group">
-                        <label className="form-label">
-                          Phone Number {ocrSuccess && <span style={{ color: '#34d399', fontSize: '11px' }}>✨ OCR Extracted</span>}
-                        </label>
+                        <label className="form-label">Phone Number</label>
                         <input
                           type="text"
                           className="form-input"
@@ -695,9 +1141,7 @@ export default function CandidatesPage() {
                         />
                       </div>
                       <div className="form-group">
-                        <label className="form-label">
-                          Aadhaar / National ID {ocrSuccess && <span style={{ color: '#34d399', fontSize: '11px' }}>✨ OCR Extracted</span>}
-                        </label>
+                        <label className="form-label">Aadhaar / National ID</label>
                         <input
                           type="text"
                           className="form-input"
@@ -707,27 +1151,45 @@ export default function CandidatesPage() {
                         />
                       </div>
                     </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
+                      <button
+                        type="button"
+                        onClick={() => setActiveFormTab('role')}
+                        className="btn btn-secondary btn-sm"
+                      >
+                        Back
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveFormTab('academic')}
+                        className="btn btn-primary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        Next: Academic Details <ChevronRight size={14} />
+                      </button>
+                    </div>
                   </div>
                 )}
 
-                {/* ─── TAB 2: ACADEMIC / STUDENT ─────────────────────── */}
+                {/* ─── TAB 3: ACADEMIC / STUDENT ─────────────────────── */}
                 {activeFormTab === 'academic' && (
                   <div>
-                    <div style={{
-                      padding: '12px 16px',
-                      background: 'rgba(59, 130, 246, 0.08)',
-                      borderRadius: '10px',
-                      marginBottom: '16px',
-                      fontSize: '12px',
-                      color: '#93c5fd',
-                    }}>
+                    <div
+                      style={{
+                        padding: '12px 16px',
+                        background: 'rgba(59, 130, 246, 0.08)',
+                        borderRadius: '10px',
+                        marginBottom: '16px',
+                        fontSize: '12px',
+                        color: '#93c5fd',
+                      }}
+                    >
                       💡 Playwright Education Bots query registrar portals using <strong>University</strong> and <strong>Roll / PRN Number</strong>.
                     </div>
 
                     <div className="form-group">
-                      <label className="form-label">
-                        University / Examining Board * {ocrSuccess && <span style={{ color: '#34d399', fontSize: '11px' }}>✨ OCR Extracted</span>}
-                      </label>
+                      <label className="form-label">University / Examining Board</label>
                       <input
                         type="text"
                         className="form-input"
@@ -739,9 +1201,7 @@ export default function CandidatesPage() {
 
                     <div className="grid-2">
                       <div className="form-group">
-                        <label className="form-label">
-                          Degree / Program {ocrSuccess && <span style={{ color: '#34d399', fontSize: '11px' }}>✨ OCR Extracted</span>}
-                        </label>
+                        <label className="form-label">Degree / Program</label>
                         <input
                           type="text"
                           className="form-input"
@@ -751,24 +1211,21 @@ export default function CandidatesPage() {
                         />
                       </div>
                       <div className="form-group">
-                        <label className="form-label">
-                          Student Roll No / PRN * {ocrSuccess && <span style={{ color: '#34d399', fontSize: '11px' }}>✨ OCR Extracted</span>}
-                        </label>
+                        <label className="form-label">Student Roll Number / PRN *</label>
                         <input
                           type="text"
                           className="form-input"
                           placeholder="e.g. 71928341 / PRN-2024-819"
                           value={formData.rollNumber}
                           onChange={(e) => setFormData({ ...formData, rollNumber: e.target.value })}
+                          style={{ fontFamily: 'monospace', color: '#38bdf8' }}
                         />
                       </div>
                     </div>
 
                     <div className="grid-2">
                       <div className="form-group">
-                        <label className="form-label">
-                          Graduation Year {ocrSuccess && <span style={{ color: '#34d399', fontSize: '11px' }}>✨ OCR Extracted</span>}
-                        </label>
+                        <label className="form-label">Passing Year</label>
                         <input
                           type="number"
                           className="form-input"
@@ -778,40 +1235,56 @@ export default function CandidatesPage() {
                         />
                       </div>
                       <div className="form-group">
-                        <label className="form-label">
-                          Grade / CGPA {ocrSuccess && <span style={{ color: '#34d399', fontSize: '11px' }}>✨ OCR Extracted</span>}
-                        </label>
+                        <label className="form-label">Grade / CGPA</label>
                         <input
                           type="text"
                           className="form-input"
-                          placeholder="e.g. 8.85 CGPA / First Class"
+                          placeholder="e.g. 8.5 / 10"
                           value={formData.grade}
                           onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
                         />
                       </div>
                     </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
+                      <button
+                        type="button"
+                        onClick={() => setActiveFormTab('personal')}
+                        className="btn btn-secondary btn-sm"
+                      >
+                        Back
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveFormTab('employment')}
+                        className="btn btn-primary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        Next: Employment <ChevronRight size={14} />
+                      </button>
+                    </div>
                   </div>
                 )}
 
-                {/* ─── TAB 3: EMPLOYMENT HISTORY ─────────────────────── */}
+                {/* ─── TAB 4: EMPLOYMENT ─────────────────────────────── */}
                 {activeFormTab === 'employment' && (
                   <div>
-                    <div style={{
-                      padding: '12px 16px',
-                      background: 'rgba(59, 130, 246, 0.08)',
-                      borderRadius: '10px',
-                      marginBottom: '16px',
-                      fontSize: '12px',
-                      color: '#93c5fd',
-                    }}>
+                    <div
+                      style={{
+                        padding: '12px 16px',
+                        background: 'rgba(59, 130, 246, 0.08)',
+                        borderRadius: '10px',
+                        marginBottom: '16px',
+                        fontSize: '12px',
+                        color: '#93c5fd',
+                      }}
+                    >
                       💡 Playwright Employment Bots verify tenure and designation against employer databases using <strong>Company Name</strong> and <strong>Employee ID</strong>.
                     </div>
 
                     <div className="grid-2">
                       <div className="form-group">
-                        <label className="form-label">
-                          Company Name {ocrSuccess && <span style={{ color: '#34d399', fontSize: '11px' }}>✨ OCR Extracted</span>}
-                        </label>
+                        <label className="form-label">Previous Company Name</label>
                         <input
                           type="text"
                           className="form-input"
@@ -821,9 +1294,7 @@ export default function CandidatesPage() {
                         />
                       </div>
                       <div className="form-group">
-                        <label className="form-label">
-                          Designation / Role {ocrSuccess && <span style={{ color: '#34d399', fontSize: '11px' }}>✨ OCR Extracted</span>}
-                        </label>
+                        <label className="form-label">Designation / Role</label>
                         <input
                           type="text"
                           className="form-input"
@@ -836,32 +1307,62 @@ export default function CandidatesPage() {
 
                     <div className="grid-2">
                       <div className="form-group">
-                        <label className="form-label">
-                          Employee ID {ocrSuccess && <span style={{ color: '#34d399', fontSize: '11px' }}>✨ OCR Extracted</span>}
-                        </label>
+                        <label className="form-label">Employee ID</label>
                         <input
                           type="text"
                           className="form-input"
                           placeholder="e.g. INF-48291"
                           value={formData.employeeId}
                           onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
+                          style={{ fontFamily: 'monospace' }}
                         />
                       </div>
                       <div className="form-group">
-                        <label className="form-label">Tenure Duration</label>
+                        <label className="form-label">Start Date / Joining</label>
                         <input
                           type="text"
                           className="form-input"
-                          placeholder="e.g. Jan 2023 - June 2024"
+                          placeholder="e.g. Jan 2023 / 2023-01-15"
                           value={formData.startDate}
                           onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                         />
                       </div>
                     </div>
+
+                    <div className="form-group">
+                      <label className="form-label">End Date / Relieving</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="e.g. Present / Current / June 2024"
+                        value={formData.endDate}
+                        onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
+                      <button
+                        type="button"
+                        onClick={() => setActiveFormTab('academic')}
+                        className="btn btn-secondary btn-sm"
+                      >
+                        Back
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={submitting}
+                        className="btn btn-primary"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                      >
+                        <CheckCircle2 size={16} />
+                        {submitting ? 'Registering...' : 'Save & Register Candidate'}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
 
+              {/* Modal Footer */}
               <div className="modal-footer">
                 <button
                   type="button"
@@ -871,7 +1372,13 @@ export default function CandidatesPage() {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={submitting}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                >
+                  <CheckCircle2 size={16} />
                   {submitting ? 'Registering...' : 'Save & Register Candidate'}
                 </button>
               </div>
@@ -880,6 +1387,7 @@ export default function CandidatesPage() {
         </div>
       )}
 
+      {/* Verification Modal */}
       {selectedCandidateForVerif && (
         <NewVerificationModal
           isOpen={!!selectedCandidateForVerif}

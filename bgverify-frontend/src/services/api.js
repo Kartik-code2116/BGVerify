@@ -63,6 +63,17 @@ export const candidateAPI = {
   uploadDocument: (id, data) => api.post(`/candidates/${id}/documents`, data),
   uploadSelfie: (id, data) => api.post(`/candidates/${id}/selfie`, data),
   parseResume: (data) => api.post('/candidates/parse-resume', data),
+  updateHiringStage: (id, stage, notes) => api.patch(`/candidates/${id}/hiring-stage`, { stage, notes }),
+};
+
+// ─── Hiring Roles & Sectors Service ──────────────────────
+export const roleAPI = {
+  list: (params) => api.get('/roles', { params }),
+  getSummary: () => api.get('/roles/summary'),
+  getById: (id) => api.get(`/roles/${id}`),
+  create: (data) => api.post('/roles', data),
+  update: (id, data) => api.patch(`/roles/${id}`, data),
+  delete: (id) => api.delete(`/roles/${id}`),
 };
 
 // ─── Wallet Service ──────────────────────────────────────

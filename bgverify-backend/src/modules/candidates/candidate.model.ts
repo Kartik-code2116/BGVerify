@@ -32,8 +32,8 @@ export interface ICandidate extends Document {
     company: string;
     designation: string;
     department?: string;
-    startDate?: Date;
-    endDate?: Date;
+    startDate?: Date | string;
+    endDate?: Date | string;
     employeeId?: string;
     ctc?: string;
     reportingManager?: string;
@@ -41,6 +41,12 @@ export interface ICandidate extends Document {
   consentGiven: boolean;
   consentDate?: Date;
   liveSelfieUrl?: string;
+  targetRole?: string;
+  sector?: string;
+  urgency?: 'low' | 'medium' | 'high' | 'urgent';
+  jobRoleId?: mongoose.Types.ObjectId;
+  hiringStage?: 'applied' | 'verifying' | 'cleared' | 'flagged' | 'hired' | 'rejected';
+  clearanceScore?: number;
   documents?: Array<{
     documentType: string;
     fileName: string;
@@ -131,8 +137,8 @@ const candidateSchema = new Schema<ICandidate>(
         company: { type: String, required: true },
         designation: { type: String, required: true },
         department: String,
-        startDate: Date,
-        endDate: Date,
+        startDate: Schema.Types.Mixed,
+        endDate: Schema.Types.Mixed,
         employeeId: String,
         ctc: String,
         reportingManager: String,
@@ -147,6 +153,37 @@ const candidateSchema = new Schema<ICandidate>(
     },
     liveSelfieUrl: {
       type: String,
+    },
+    targetRole: {
+      type: String,
+      trim: true,
+      index: true,
+    },
+    sector: {
+      type: String,
+      trim: true,
+      index: true,
+    },
+    urgency: {
+      type: String,
+      enum: ['low', 'medium', 'high', 'urgent'],
+      default: 'medium',
+      index: true,
+    },
+    jobRoleId: {
+      type: Schema.Types.ObjectId,
+      ref: 'JobRole',
+      index: true,
+    },
+    hiringStage: {
+      type: String,
+      enum: ['applied', 'verifying', 'cleared', 'flagged', 'hired', 'rejected'],
+      default: 'applied',
+      index: true,
+    },
+    clearanceScore: {
+      type: Number,
+      default: 0,
     },
     documents: [
       {
