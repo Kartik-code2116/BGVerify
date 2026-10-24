@@ -527,14 +527,54 @@ export default function EvidenceViewerModal({ verification, isOpen, onClose, onU
                     border: '1px solid var(--border-subtle)',
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                     <h5 style={{ fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <FileCheck2 size={16} className="text-emerald-400" />
+                      <FileCheck2 size={16} className={activeVerification.isLiveSnapshot ? "text-emerald-400" : "text-amber-400"} />
                       Playwright Full-Page Evidence Capture (Raw PNG)
                     </h5>
-                    <span style={{ fontSize: '11px', color: '#34d399', fontWeight: 600 }}>
-                      ✓ Verified Live Snapshot
-                    </span>
+                    {activeVerification.isLiveSnapshot ? (
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          color: '#34d399',
+                          background: 'rgba(16, 185, 129, 0.15)',
+                          border: '1px solid rgba(16, 185, 129, 0.35)',
+                          padding: '3px 10px',
+                          borderRadius: '12px',
+                          fontWeight: 700,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                        }}
+                      >
+                        <Globe size={13} />
+                        ✓ Verified Live Portal Snapshot
+                      </span>
+                    ) : (
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          color: '#f59e0b',
+                          background: 'rgba(245, 158, 11, 0.15)',
+                          border: '1px solid rgba(245, 158, 11, 0.35)',
+                          padding: '3px 10px',
+                          borderRadius: '12px',
+                          fontWeight: 700,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                        }}
+                      >
+                        <AlertTriangle size={13} />
+                        ⚠️ Simulated / Offline Clearance Docket
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ fontSize: '11px', color: activeVerification.isLiveSnapshot ? '#34d399' : '#f59e0b', marginBottom: '10px' }}>
+                    {activeVerification.isLiveSnapshot
+                      ? '✓ Captured directly from real live web portal by Playwright autonomous browser engine.'
+                      : '⚠️ Portal connection was offline or ran in simulated sandbox mode. This is NOT captured from a live external website.'}
                   </div>
                   <div
                     style={{

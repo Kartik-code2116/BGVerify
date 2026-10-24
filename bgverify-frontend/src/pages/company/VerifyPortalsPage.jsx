@@ -188,6 +188,8 @@ export default function VerifyPortalsPage() {
         portalName: portal.name,
         screenshotBase64: data?.screenshotBase64,
         logs: data?.logs || [],
+        isLiveSnapshot: Boolean(data?.isLiveSnapshot),
+        captureType: data?.captureType,
       });
 
       await loadPortals();
@@ -615,13 +617,22 @@ export default function VerifyPortalsPage() {
                           borderRadius: '12px',
                           background:
                             portal.testStatus === 'success'
-                              ? 'rgba(16, 185, 129, 0.15)'
-                              : 'rgba(245, 158, 11, 0.15)',
-                          color: portal.testStatus === 'success' ? '#34d399' : '#f59e0b',
+                              ? portal.isLiveSnapshot
+                                ? 'rgba(16, 185, 129, 0.15)'
+                                : 'rgba(245, 158, 11, 0.15)'
+                              : 'rgba(148, 163, 184, 0.12)',
+                          color:
+                            portal.testStatus === 'success'
+                              ? portal.isLiveSnapshot
+                                ? '#34d399'
+                                : '#f59e0b'
+                              : '#94a3b8',
                           border:
                             portal.testStatus === 'success'
-                              ? '1px solid rgba(16, 185, 129, 0.3)'
-                              : '1px solid rgba(245, 158, 11, 0.3)',
+                              ? portal.isLiveSnapshot
+                                ? '1px solid rgba(16, 185, 129, 0.3)'
+                                : '1px solid rgba(245, 158, 11, 0.3)'
+                              : '1px solid rgba(148, 163, 184, 0.25)',
                           display: 'flex',
                           alignItems: 'center',
                           gap: '4px',
@@ -632,10 +643,19 @@ export default function VerifyPortalsPage() {
                             width: 6,
                             height: 6,
                             borderRadius: '50%',
-                            background: portal.testStatus === 'success' ? '#10b981' : '#f59e0b',
+                            background:
+                              portal.testStatus === 'success'
+                                ? portal.isLiveSnapshot
+                                  ? '#10b981'
+                                  : '#f59e0b'
+                                : '#94a3b8',
                           }}
                         />
-                        {portal.testStatus === 'success' ? 'Authenticated' : 'Untested'}
+                        {portal.testStatus === 'success'
+                          ? portal.isLiveSnapshot
+                            ? 'Live Online'
+                            : 'Offline / Simulated'
+                          : 'Untested'}
                       </span>
                     </div>
                   </div>
@@ -801,12 +821,14 @@ export default function VerifyPortalsPage() {
                             portalName: portal.name,
                             screenshotBase64: portal.testScreenshot,
                             logs: portal.testLogs || [],
+                            isLiveSnapshot: Boolean(portal.isLiveSnapshot),
+                            captureType: portal.captureType,
                           })
                         }
-                        title="View authenticated dashboard screenshot"
+                        title={`View authenticated dashboard screenshot (${portal.isLiveSnapshot ? 'Live Portal Capture' : 'Simulated Fallback Docket'})`}
                         style={{ padding: '6px 8px', fontSize: '12px' }}
                       >
-                        <FileCheck2 size={13} style={{ color: '#10b981' }} />
+                        <FileCheck2 size={13} style={{ color: portal.isLiveSnapshot ? '#10b981' : '#f59e0b' }} />
                       </button>
                     )}
 
@@ -1027,19 +1049,28 @@ export default function VerifyPortalsPage() {
                     width: 36,
                     height: 36,
                     borderRadius: 10,
-                    background: 'rgba(16, 185, 129, 0.15)',
-                    color: '#10b981',
+                    background: testResultModal.isLiveSnapshot
+                      ? 'rgba(16, 185, 129, 0.15)'
+                      : 'rgba(245, 158, 11, 0.15)',
+                    color: testResultModal.isLiveSnapshot ? '#10b981' : '#f59e0b',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
                 >
-                  <ShieldCheck size={20} />
+                  {testResultModal.isLiveSnapshot ? <ShieldCheck size={20} /> : <AlertTriangle size={20} />}
                 </div>
                 <div>
-                  <h3 style={{ margin: 0 }}>Playwright Portal Authentication Handshake Verified</h3>
+                  <h3 style={{ margin: 0 }}>
+                    {testResultModal.isLiveSnapshot
+                      ? 'Playwright Live Portal Verification Complete'
+                      : 'Simulated Institutional Docket (Offline Fallback)'}
+                  </h3>
                   <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>
-                    Target: <strong>{testResultModal.portalName}</strong> • Real-Time Playwright Engine Capture
+                    Target: <strong>{testResultModal.portalName}</strong> •{' '}
+                    {testResultModal.isLiveSnapshot
+                      ? 'Real-Time External DOM Engine Capture'
+                      : 'Portal Unreachable — Executed Sandbox Fallback'}
                   </p>
                 </div>
               </div>
@@ -1090,12 +1121,77 @@ export default function VerifyPortalsPage() {
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <div style={{ fontSize: '13px', fontWeight: 600, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <FileCheck2 size={16} className="text-emerald-400" />
+                      <FileCheck2 size={16} style={{ color: testResultModal.isLiveSnapshot ? '#10b981' : '#f59e0b' }} />
                       <span>Authenticated Session Evidence Capture (Raw PNG)</span>
                     </div>
-                    <span style={{ fontSize: '11px', color: '#34d399', fontWeight: 600 }}>
-                      ✓ Verified Live Snapshot
-                    </span>
+                    {testResultModal.isLiveSnapshot ? (
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          color: '#34d399',
+                          fontWeight: 600,
+                          background: 'rgba(16, 185, 129, 0.15)',
+                          border: '1px solid rgba(16, 185, 129, 0.3)',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        <Globe size={12} />
+                        ✓ Verified Live Portal Snapshot
+                      </span>
+                    ) : (
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          color: '#f59e0b',
+                          fontWeight: 600,
+                          background: 'rgba(245, 158, 11, 0.15)',
+                          border: '1px solid rgba(245, 158, 11, 0.3)',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        <AlertTriangle size={12} />
+                        ⚠️ Simulated / Offline Fallback (Not Live)
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Informational Banner */}
+                  <div
+                    style={{
+                      fontSize: '11px',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      marginBottom: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      background: testResultModal.isLiveSnapshot
+                        ? 'rgba(16, 185, 129, 0.08)'
+                        : 'rgba(245, 158, 11, 0.08)',
+                      border: testResultModal.isLiveSnapshot
+                        ? '1px solid rgba(16, 185, 129, 0.2)'
+                        : '1px solid rgba(245, 158, 11, 0.2)',
+                      color: testResultModal.isLiveSnapshot ? '#a7f3d0' : '#fde68a',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {testResultModal.isLiveSnapshot ? (
+                      <span>
+                        <strong>Live Evidence Confirmed:</strong> Playwright navigated directly to the external target website, interacted with live DOM input fields, and took this screenshot directly from the live web server.
+                      </span>
+                    ) : (
+                      <span>
+                        <strong>Target Portal Offline / Unreachable:</strong> Playwright was unable to reach the live external host. An institutional clearance docket was generated in sandboxed offline mode. This is <strong>not</strong> a real web screenshot.
+                      </span>
+                    )}
                   </div>
                   <div
                     style={{

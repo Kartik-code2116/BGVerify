@@ -24,6 +24,7 @@ export default function NewVerificationModal({ isOpen, onClose, onSuccess, initi
   });
   const [simulateDiscrepancy, setSimulateDiscrepancy] = useState(false);
   const [dbPortals, setDbPortals] = useState([]);
+  const [selectedPortalId, setSelectedPortalId] = useState('');
   const [selectedPortalName, setSelectedPortalName] = useState('');
   const [selectedPortalUrl, setSelectedPortalUrl] = useState('');
   const [isCustomPortal, setIsCustomPortal] = useState(false);
@@ -60,11 +61,13 @@ export default function NewVerificationModal({ isOpen, onClose, onSuccess, initi
       const res = await portalAPI.list();
       const list = res.data?.data || [];
       setDbPortals(list);
-      // Pre-select portal for current verification type
-      const match = list.find((p) => p.category === formData.verificationType);
+      // Pre-select portal for current verification type, or default to first configured portal
+      const match = list.find((p) => p.category === formData.verificationType) || list[0];
       if (match) {
+        setSelectedPortalId(match._id);
         setSelectedPortalName(match.name);
         setSelectedPortalUrl(match.searchUrl || match.loginUrl);
+        setIsCustomPortal(false);
       }
     } catch (err) {
       console.error('Failed to load portals:', err);
@@ -73,8 +76,9 @@ export default function NewVerificationModal({ isOpen, onClose, onSuccess, initi
 
   useEffect(() => {
     if (dbPortals.length > 0 && !isCustomPortal) {
-      const match = dbPortals.find((p) => p.category === formData.verificationType);
+      const match = dbPortals.find((p) => p.category === formData.verificationType) || dbPortals[0];
       if (match) {
+        setSelectedPortalId(match._id);
         setSelectedPortalName(match.name);
         setSelectedPortalUrl(match.searchUrl || match.loginUrl);
       }
@@ -283,39 +287,65 @@ export default function NewVerificationModal({ isOpen, onClose, onSuccess, initi
               </div>
               <select
                 className="form-select"
-                value={isCustomPortal ? 'custom' : selectedPortalName}
+                value={isCustomPortal ? 'custom' : (selectedPortalId || selectedPortalName)}
                 onChange={(e) => {
-                  if (e.target.value === 'custom') {
+                  const val = e.target.value;
+                  if (val === 'custom') {
                     setIsCustomPortal(true);
+                    setSelectedPortalId('custom');
                     setSelectedPortalName('');
                     setSelectedPortalUrl('https://');
                   } else {
                     setIsCustomPortal(false);
-                    const match = dbPortals.find((p) => p.name === e.target.value);
+                    setSelectedPortalId(val);
+                    const match = dbPortals.find((p) => p._id === val || p.name === val);
                     if (match) {
                       setSelectedPortalName(match.name);
                       setSelectedPortalUrl(match.searchUrl || match.loginUrl);
-                    } else {
-                      setSelectedPortalName(e.target.value);
                     }
                   }
                 }}
               >
-                {dbPortals
-                  .filter((p) => p.category === formData.verificationType || p.category === 'custom')
-                  .map((p) => (
-                    <option key={p._id} value={p.name}>
-                      🏛️ {p.name} (Vault Login: {p.username})
-                    </option>
-                  ))}
-                <option value="National Academic Registrar Clearinghouse (NAD)">
-                  🏛️ National Academic Depository (Central Government Clearinghouse)
-                </option>
-                <option value="Corporate Verification Clearinghouse & Employer Registry">
-                  🏢 Corporate Employment Clearinghouse & EPFO Registry
-                </option>
-                <option value="custom">🌐 Enter Custom Portal / Website URL...</option>
+                {dbPortals.length > 0 && (
+                  <optgroup label="Vault Portals (Configured in Verify Portals)">
+                    {dbPortals.map((p) => (
+                      <option key={p._id} value={p._id}>
+                        🏛️ {p.name} [{p.category?.toUpperCase()}] • (Vault User: {p.username})
+                        {p.category === formData.verificationType ? ' ★ Recommended' : ''}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                <optgroup label="Custom Gate">
+                  <option value="custom">🌐 Enter Custom Portal / Website URL...</option>
+                </optgroup>
               </select>
+
+              {!isCustomPortal && selectedPortalUrl && (
+                <div
+                  style={{
+                    marginTop: '8px',
+                    fontSize: '11px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    background: 'rgba(15, 23, 42, 0.65)',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Target URL:</span>
+                    <code style={{ color: '#38bdf8', fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {selectedPortalUrl}
+                    </code>
+                  </div>
+                  <span style={{ color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                    ✓ Vault Credentials Active
+                  </span>
+                </div>
+              )}
 
               {isCustomPortal && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' }}>

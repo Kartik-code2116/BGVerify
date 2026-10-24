@@ -18,6 +18,8 @@ export interface PlaywrightExecutionResult {
   botLogs: string[];
   screenshotBase64: string;
   evidenceSha256: string;
+  isLiveSnapshot: boolean;
+  captureType: 'live_portal_capture' | 'simulated_fallback';
 }
 
 export class PlaywrightBotService {
@@ -259,101 +261,231 @@ export class PlaywrightBotService {
 
           await page.waitForTimeout(1000);
 
-          // Find candidate search or inquiry box on the live web page
-          const querySelectors = [
-            'input[name*="roll" i]',
-            'input[name*="prn" i]',
-            'input[name*="reg" i]',
-            'input[name*="search" i]',
-            'input[placeholder*="roll" i]',
-            'input[placeholder*="prn" i]',
-            'input[placeholder*="search" i]',
-            'input[placeholder*="reg" i]',
-            'input[name*="emp" i]',
-            'input[placeholder*="emp" i]',
-            'input[type="search"]',
-            'input[type="text"]',
-          ];
+          // Deep DOM Inspection: Check if the live site returned a 404, server error, or error document
+          const pageInfo = await page.evaluate(() => {
+            return {
+              title: document.title || '',
+              bodyText: document.body ? document.body.innerText || '' : '',
+              url: window.location.href,
+            };
+          }).catch(() => ({ title: '', bodyText: '', url: portalUrl }));
 
-          let queryInput = null;
-          let matchedQuerySel = '';
-          for (const sel of querySelectors) {
-            const el = await page.$(sel);
-            if (el && (await el.isVisible())) {
-              queryInput = el;
-              matchedQuerySel = sel;
-              break;
-            }
-          }
+          const fullTextLower = `${pageInfo.title} ${pageInfo.bodyText}`.toLowerCase();
+
+          const is404 =
+            statusCode === 404 ||
+            fullTextLower.includes('404 - file or directory not found') ||
+            fullTextLower.includes('404 not found') ||
+            fullTextLower.includes('page not found') ||
+            fullTextLower.includes('directory not found') ||
+            fullTextLower.includes('resource you are looking for might have been removed');
+
+          const isServerError =
+            statusCode >= 500 ||
+            fullTextLower.includes('500 internal server') ||
+            fullTextLower.includes('bad gateway') ||
+            fullTextLower.includes('service unavailable');
+
+          const isForbidden =
+            statusCode === 403 ||
+            statusCode === 401 ||
+            fullTextLower.includes('access denied') ||
+            fullTextLower.includes('unauthorized') ||
+            fullTextLower.includes('forbidden');
+
+          const isInitialRecordNotFound =
+            fullTextLower.includes('record not found') ||
+            fullTextLower.includes('no record found') ||
+            fullTextLower.includes('no records found') ||
+            fullTextLower.includes('no data found') ||
+            fullTextLower.includes('no matching record') ||
+            fullTextLower.includes('invalid roll') ||
+            fullTextLower.includes('invalid prn') ||
+            fullTextLower.includes('invalid registration') ||
+            fullTextLower.includes('student not found') ||
+            fullTextLower.includes('candidate not found') ||
+            fullTextLower.includes('not registered');
 
           const studentQueryKey = inputData.rollNumber || inputData.employeeId || inputData.idNumber || candidateName;
 
-          if (queryInput) {
-            await queryInput.evaluate((el: any) => {
-              el.style.outline = '3px solid #38bdf8';
-              el.style.boxShadow = '0 0 15px rgba(56, 189, 248, 0.7)';
-              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            });
-            await queryInput.click();
-            await queryInput.fill('');
-            await queryInput.type(String(studentQueryKey), { delay: 40 });
-            log(`Located live inquiry field [${matchedQuerySel}] — Entered candidate search key: "${studentQueryKey}"`);
+          if (is404 || isServerError || isForbidden || isInitialRecordNotFound) {
+            let errorReason = 'Page Not Found';
+            if (is404) {
+              errorReason = `HTTP 404 - File or directory not found on ${portalName}`;
+            } else if (isServerError) {
+              errorReason = `HTTP ${statusCode} - Portal Server Error`;
+            } else if (isForbidden) {
+              errorReason = `HTTP ${statusCode} - Access Denied / Authentication Required`;
+            } else {
+              errorReason = `Official Registry: Record Not Located for "${studentQueryKey}"`;
+            }
 
-            // Try clicking live search / lookup button
-            const searchButtons = [
-              'button[type="submit"]',
-              'button:has-text("Search")',
-              'button:has-text("Verify")',
-              'button:has-text("Check")',
-              'button:has-text("Lookup")',
-              'input[type="submit"]',
+            log(`[Live Web Inspection Alert] Target portal returned error: ${errorReason}`);
+            status = 'manual_review';
+            result = 'no_match';
+            confidence = 0.12;
+            summary = `Verification Discrepancy: Target portal "${portalName}" returned ${errorReason}. Official records for ${candidateName} could not be validated on this registry.`;
+            flags = [
+              `Target portal returned ${errorReason}`,
+              `Registry record unverified for query "${studentQueryKey}"`,
             ];
-            for (const bSel of searchButtons) {
-              const b = await page.$(bSel);
-              if (b && (await b.isVisible())) {
-                await b.evaluate((el: any) => {
-                  el.style.outline = '3px solid #10b981';
-                });
-                await b.click().catch(() => {});
-                log(`Clicked live search button on portal`);
-                await page.waitForTimeout(2000);
+            recommendedAction =
+              'Routed to Discrepancy Review Queue — Portal endpoint returned 404 or record was not located. HR must request original certificate with verification seal or cross-verify via alternative portal (e.g. DigiLocker NAD).';
+
+            fieldComparisons = [
+              { field: 'Verification Source / Portal', submitted: 'Accredited Portal', found: portalName, isMatch: true },
+              { field: 'Portal Server Response', submitted: '200 OK Active', found: `HTTP ${statusCode} (${errorReason})`, isMatch: false },
+              { field: 'Candidate Registry Record', submitted: candidateName, found: 'Record Not Located (Discrepancy)', isMatch: false },
+              { field: 'Search Key / Roll Number', submitted: String(studentQueryKey), found: 'No Registry Match', isMatch: false },
+              { field: 'Clearance Status', submitted: 'Verified Clearance', found: 'Failed / Unverified', isMatch: false },
+            ];
+          } else {
+            // Find candidate search or inquiry box on the live web page
+            const querySelectors = [
+              'input[name*="roll" i]',
+              'input[name*="prn" i]',
+              'input[name*="reg" i]',
+              'input[name*="search" i]',
+              'input[placeholder*="roll" i]',
+              'input[placeholder*="prn" i]',
+              'input[placeholder*="search" i]',
+              'input[placeholder*="reg" i]',
+              'input[name*="emp" i]',
+              'input[placeholder*="emp" i]',
+              'input[type="search"]',
+              'input[type="text"]',
+            ];
+
+            let queryInput = null;
+            let matchedQuerySel = '';
+            for (const sel of querySelectors) {
+              const el = await page.$(sel);
+              if (el && (await el.isVisible())) {
+                queryInput = el;
+                matchedQuerySel = sel;
                 break;
               }
             }
-          } else {
-            log(`Live page loaded. Interacting with active portal view...`);
+
+            if (queryInput) {
+              await queryInput.evaluate((el: any) => {
+                el.style.outline = '3px solid #38bdf8';
+                el.style.boxShadow = '0 0 15px rgba(56, 189, 248, 0.7)';
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              });
+              await queryInput.click();
+              await queryInput.fill('');
+              await queryInput.type(String(studentQueryKey), { delay: 40 });
+              log(`Located live inquiry field [${matchedQuerySel}] — Entered candidate search key: "${studentQueryKey}"`);
+
+              // Try clicking live search / lookup button
+              const searchButtons = [
+                'button[type="submit"]',
+                'button:has-text("Search")',
+                'button:has-text("Verify")',
+                'button:has-text("Check")',
+                'button:has-text("Lookup")',
+                'input[type="submit"]',
+              ];
+              for (const bSel of searchButtons) {
+                const b = await page.$(bSel);
+                if (b && (await b.isVisible())) {
+                  await b.evaluate((el: any) => {
+                    el.style.outline = '3px solid #10b981';
+                  });
+                  await b.click().catch(() => {});
+                  log(`Clicked live search button on portal`);
+                  await page.waitForTimeout(2500);
+                  break;
+                }
+              }
+
+              // Re-check page text after submitting search query
+              const postSearchText = await page.evaluate(() => (document.body ? document.body.innerText.toLowerCase() : '')).catch(() => '');
+              if (
+                postSearchText.includes('no record') ||
+                postSearchText.includes('not found') ||
+                postSearchText.includes('invalid') ||
+                postSearchText.includes('zero result')
+              ) {
+                status = 'manual_review';
+                result = 'no_match';
+                confidence = 0.18;
+                summary = `Inquiry on "${portalName}" for candidate query "${studentQueryKey}" returned no matching registry records.`;
+                flags = [`Official registry returned no matching records for "${studentQueryKey}"`];
+                recommendedAction =
+                  'Routed to Discrepancy Review Queue — Request manual degree verification or alternative credentials.';
+                fieldComparisons = [
+                  { field: 'Verification Source / Portal', submitted: 'Target Registry', found: portalName, isMatch: true },
+                  { field: 'Candidate Registry Record', submitted: candidateName, found: 'Record Not Located', isMatch: false },
+                  { field: 'Search Key / Roll Number', submitted: String(studentQueryKey), found: 'No Match Found', isMatch: false },
+                  { field: 'Clearance Status', submitted: 'Verified Clearance', found: 'No Match / Flagged', isMatch: false },
+                ];
+              }
+            } else {
+              log(`Live page loaded. Interacting with active portal view...`);
+            }
           }
 
-          // Inject verified watermark banner into live web page
-          await page.evaluate(({ portalName, candidateName, ref, status, queryKey }: any) => {
-            const banner = document.createElement('div');
-            banner.id = 'bgverify-watermark';
-            banner.style.position = 'fixed';
-            banner.style.top = '0';
-            banner.style.left = '0';
-            banner.style.right = '0';
-            banner.style.zIndex = '9999999';
-            banner.style.background = 'linear-gradient(90deg, #090d16, #1e293b)';
-            banner.style.borderBottom = '2px solid #38bdf8';
-            banner.style.padding = '10px 20px';
-            banner.style.display = 'flex';
-            banner.style.alignItems = 'center';
-            banner.style.justifyContent = 'space-between';
-            banner.style.fontFamily = 'system-ui, -apple-system, sans-serif';
-            banner.style.fontSize = '12px';
-            banner.style.color = '#ffffff';
-            banner.style.boxShadow = '0 4px 20px rgba(0,0,0,0.6)';
-            banner.innerHTML = `
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="background: #0ea5e9; color: #fff; font-weight: bold; padding: 2px 8px; border-radius: 4px; font-size: 11px;">✓ LIVE BROWSER BOT EVIDENCE</span>
-                <span><strong>${portalName}</strong> • Candidate: <strong>${candidateName}</strong> (Search Key: ${queryKey})</span>
-              </div>
-              <div style="font-family: monospace; color: #34d399; font-size: 11px;">
-                Reference: ${ref} • Clearance Status: ${status.toUpperCase()}
-              </div>
-            `;
-            document.body.prepend(banner);
-          }, { portalName, candidateName, ref: verificationRef, status, queryKey: studentQueryKey }).catch(() => {});
+          // Inject verified or warning watermark banner into live web page before capture
+          await page.evaluate(
+            ({ portalName, candidateName, ref, queryKey, statusCode, status, result, summary }: any) => {
+              const banner = document.createElement('div');
+              banner.id = 'bgverify-watermark';
+              banner.style.position = 'fixed';
+              banner.style.top = '0';
+              banner.style.left = '0';
+              banner.style.right = '0';
+              banner.style.zIndex = '9999999';
+              banner.style.fontFamily = 'system-ui, -apple-system, sans-serif';
+              banner.style.fontSize = '12px';
+              banner.style.color = '#ffffff';
+              banner.style.padding = '10px 20px';
+              banner.style.display = 'flex';
+              banner.style.alignItems = 'center';
+              banner.style.justifyContent = 'space-between';
+              banner.style.boxShadow = '0 4px 20px rgba(0,0,0,0.6)';
+
+              const isSuccess = result === 'match';
+
+              if (isSuccess) {
+                banner.style.background = 'linear-gradient(90deg, #090d16, #1e293b)';
+                banner.style.borderBottom = '2px solid #10b981';
+                banner.innerHTML = `
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="background: #10b981; color: #000; font-weight: bold; padding: 2px 8px; border-radius: 4px; font-size: 11px;">✓ LIVE BROWSER BOT EVIDENCE</span>
+                    <span><strong>${portalName}</strong> • Candidate: <strong>${candidateName}</strong> (Search Key: ${queryKey})</span>
+                  </div>
+                  <div style="font-family: monospace; color: #34d399; font-size: 11px;">
+                    Reference: ${ref} • Clearance Status: COMPLETED / MATCH
+                  </div>
+                `;
+              } else {
+                banner.style.background = 'linear-gradient(90deg, #2a0808, #180909)';
+                banner.style.borderBottom = '2px solid #ef4444';
+                banner.innerHTML = `
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="background: #ef4444; color: #fff; font-weight: bold; padding: 2px 8px; border-radius: 4px; font-size: 11px;">⚠️ LIVE BOT CHECK: ${statusCode === 404 ? 'HTTP 404 NOT FOUND' : 'RECORD NOT LOCATED'}</span>
+                    <span><strong>${portalName}</strong> • Candidate: <strong>${candidateName}</strong> (Search Key: ${queryKey})</span>
+                  </div>
+                  <div style="font-family: monospace; color: #f87171; font-size: 11px; font-weight: bold;">
+                    Reference: ${ref} • Clearance Status: ${result.toUpperCase()} (HTTP ${statusCode})
+                  </div>
+                `;
+              }
+              document.body.prepend(banner);
+            },
+            {
+              portalName,
+              candidateName,
+              ref: verificationRef,
+              queryKey: studentQueryKey,
+              statusCode,
+              status,
+              result,
+              summary,
+            }
+          ).catch(() => {});
 
           await page.waitForTimeout(headless ? 500 : 1500);
 
@@ -399,6 +531,8 @@ export class PlaywrightBotService {
         botLogs,
         screenshotBase64,
         evidenceSha256,
+        isLiveSnapshot: liveWebSuccess,
+        captureType: liveWebSuccess ? 'live_portal_capture' : 'simulated_fallback',
       };
     } catch (error: any) {
       log(`Playwright Automation Error: ${error.message}`);
@@ -748,6 +882,8 @@ export class PlaywrightBotService {
     logs: string[];
     screenshotBase64: string;
     authTimestamp: string;
+    isLiveSnapshot: boolean;
+    captureType: 'live_portal_capture' | 'simulated_fallback';
   }> {
     const { portal } = params;
     const headless = params.headless !== undefined ? params.headless : true;
@@ -798,8 +934,26 @@ export class PlaywrightBotService {
           });
 
           const status = response ? response.status() : 200;
-          log(`Connected to live portal! HTTP Status: ${status} — Page loaded successfully`);
-          livePageSuccess = true;
+          log(`Connected to live portal URL! HTTP Status: ${status}`);
+
+          const testPageInfo = await page.evaluate(() => {
+            return {
+              title: document.title || '',
+              body: document.body ? document.body.innerText.toLowerCase() : '',
+            };
+          }).catch(() => ({ title: '', body: '' }));
+
+          if (
+            status >= 400 ||
+            testPageInfo.body.includes('404 - file or directory not found') ||
+            testPageInfo.body.includes('404 not found') ||
+            testPageInfo.body.includes('page not found')
+          ) {
+            log(`[Live Web Alert] Target login endpoint returned HTTP ${status} (Not Found or Server Error).`);
+            livePageSuccess = false;
+          } else {
+            livePageSuccess = true;
+          }
 
           await page.waitForTimeout(1000);
 
@@ -967,6 +1121,8 @@ export class PlaywrightBotService {
         logs: botLogs,
         screenshotBase64,
         authTimestamp: new Date().toISOString(),
+        isLiveSnapshot: livePageSuccess,
+        captureType: livePageSuccess ? 'live_portal_capture' : 'simulated_fallback',
       };
     } catch (error: any) {
       log(`Playwright Login Test Error: ${error.message}`);

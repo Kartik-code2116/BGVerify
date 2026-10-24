@@ -148,6 +148,8 @@ class VerificationService {
         botLogs: botResult.botLogs,
         evidenceScreenshotBase64: botResult.screenshotBase64,
         evidenceSha256: botResult.evidenceSha256,
+        isLiveSnapshot: botResult.isLiveSnapshot,
+        captureType: botResult.captureType,
         collectedEvidence: {
           screenshots: [`evidence_${input.verificationType}_${Date.now()}.png`],
           pdfs: [`official_transcript_${input.verificationType}.pdf`],
@@ -156,6 +158,33 @@ class VerificationService {
       });
 
       logger.info(`Playwright verification finished for ${verificationId}: ${botResult.status} / ${botResult.result}`);
+
+      // Keep candidate hiringStage in sync with verification results
+      const candidateId = candidate._id || candidate.id;
+      if (candidateId) {
+        if (
+          botResult.result === 'no_match' ||
+          botResult.result === 'partial_match' ||
+          botResult.status === 'manual_review'
+        ) {
+          await Candidate.findByIdAndUpdate(candidateId, {
+            hiringStage: 'flagged',
+            clearanceScore: 35,
+          });
+        } else if (botResult.result === 'match') {
+          const otherDiscrepancies = await Verification.countDocuments({
+            candidateId,
+            _id: { $ne: verificationId },
+            $or: [{ result: 'no_match' }, { result: 'partial_match' }, { status: 'manual_review' }],
+          });
+          if (otherDiscrepancies === 0) {
+            await Candidate.findByIdAndUpdate(candidateId, {
+              hiringStage: 'cleared',
+              clearanceScore: 95,
+            });
+          }
+        }
+      }
     } catch (err) {
       logger.error('Error processing automated Playwright verification pipeline:', err);
     }
@@ -228,7 +257,35 @@ class VerificationService {
     verification.botLogs = botResult.botLogs;
     verification.evidenceScreenshotBase64 = botResult.screenshotBase64;
     verification.evidenceSha256 = botResult.evidenceSha256;
+    verification.isLiveSnapshot = botResult.isLiveSnapshot;
+    verification.captureType = botResult.captureType;
     await verification.save();
+
+    const candidateId = candidate._id || candidate.id;
+    if (candidateId) {
+      if (
+        botResult.result === 'no_match' ||
+        botResult.result === 'partial_match' ||
+        botResult.status === 'manual_review'
+      ) {
+        await Candidate.findByIdAndUpdate(candidateId, {
+          hiringStage: 'flagged',
+          clearanceScore: 35,
+        });
+      } else if (botResult.result === 'match') {
+        const otherDiscrepancies = await Verification.countDocuments({
+          candidateId,
+          _id: { $ne: verification._id },
+          $or: [{ result: 'no_match' }, { result: 'partial_match' }, { status: 'manual_review' }],
+        });
+        if (otherDiscrepancies === 0) {
+          await Candidate.findByIdAndUpdate(candidateId, {
+            hiringStage: 'cleared',
+            clearanceScore: 95,
+          });
+        }
+      }
+    }
 
     return verification;
   }

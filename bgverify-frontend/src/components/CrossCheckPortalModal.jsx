@@ -157,13 +157,15 @@ export default function CrossCheckPortalModal({
 
   const defaultPresets = PORTAL_PRESETS[vType] || PORTAL_PRESETS.education;
   const orgPortalsForType = dbPortals
-    .filter((p) => p.isActive && (p.category === vType || p.category === 'custom'))
+    .filter((p) => p.isActive)
+    .sort((a, b) => (a.category === vType ? -1 : 1))
     .map((p) => ({
       name: p.name,
       url: p.searchUrl || p.loginUrl,
-      badge: 'Vault Credentials Configured',
+      badge: `${p.category?.toUpperCase()} • Vault Credentials`,
       description: `Configured credentials for username "${p.username}". ${p.authNotes || ''}`,
       isOrgVault: true,
+      category: p.category,
     }));
 
   const presets = [...orgPortalsForType, ...defaultPresets];

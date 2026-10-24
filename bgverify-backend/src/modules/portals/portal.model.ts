@@ -18,6 +18,8 @@ export interface IPortal extends Document {
   testStatus: 'success' | 'failed' | 'untested';
   testScreenshot?: string;
   testLogs?: string[];
+  isLiveSnapshot?: boolean;
+  captureType?: 'live_portal_capture' | 'simulated_fallback';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -49,6 +51,12 @@ const PortalSchema = new Schema<IPortal>(
     },
     testScreenshot: { type: String },
     testLogs: [{ type: String }],
+    isLiveSnapshot: { type: Boolean, default: false },
+    captureType: {
+      type: String,
+      enum: ['live_portal_capture', 'simulated_fallback'],
+      default: 'simulated_fallback',
+    },
   },
   { timestamps: true }
 );

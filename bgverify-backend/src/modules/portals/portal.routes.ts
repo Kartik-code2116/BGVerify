@@ -20,57 +20,7 @@ const DEFAULT_PORTALS = [
     username: 'inst_registrar_auth@university.ac.in',
     password: 'MockSecurePassword#2026',
     email: 'academic.verifications@bgverify-corp.com',
-    authNotes: 'Official Government of India academic depository holding 2.5B+ accredited certificates.',
-  },
-  {
-    name: 'Savitribai Phule Pune University (SPPU Registrar Portal)',
-    category: 'education',
-    loginUrl: 'https://unipune.ac.in/portal/login',
-    searchUrl: 'https://unipune.ac.in/electronic-verify',
-    username: 'sppu_hr_verify_2024',
-    password: 'MockSPPUSecret#892',
-    email: 'university.checks@bgverify-corp.com',
-    authNotes: 'Online degree verification system for SPPU affiliated colleges and autonomous institutes.',
-  },
-  {
-    name: 'Employees’ Provident Fund Organisation (EPFO Gateway)',
-    category: 'employment',
-    loginUrl: 'https://unifiedportal-emp.epfindia.gov.in/epfo/',
-    searchUrl: 'https://unifiedportal-mem.epfindia.gov.in/service-history',
-    username: 'MH_PUN_0089218_000',
-    password: 'MockEPFOPassword#2026',
-    email: 'compliance.epfo@bgverify-corp.com',
-    authNotes: 'Universal Account Number (UAN) passbook and authenticated EPF monthly contribution records.',
-  },
-  {
-    name: 'Ministry of Corporate Affairs (MCA21 Registry)',
-    category: 'employment',
-    loginUrl: 'https://www.mca.gov.in/mcafoportal/login.html',
-    searchUrl: 'https://mca.gov.in/mcafoportal/verify-director',
-    username: 'mca_corp_agent_91',
-    password: 'MockMCAPassword#123',
-    email: 'corporate.legal@bgverify-corp.com',
-    authNotes: 'MCA company registration, signatory details, and director records ledger.',
-  },
-  {
-    name: 'UIDAI Aadhaar & NSDL PAN Verification Gate',
-    category: 'identity',
-    loginUrl: 'https://myaadhaar.uidai.gov.in/login',
-    searchUrl: 'https://myaadhaar.uidai.gov.in/verify-identity',
-    username: 'uidai_aua_kua_8921',
-    password: 'MockUIDAISecret#99',
-    email: 'identity.gateway@bgverify-corp.com',
-    authNotes: 'Offline Aadhaar XML and PAN cryptographic signature verification service.',
-  },
-  {
-    name: 'eCourts Services India (National Case Status)',
-    category: 'criminal',
-    loginUrl: 'https://services.ecourts.gov.in/ecourtindia_v6/login',
-    searchUrl: 'https://services.ecourts.gov.in/case-search',
-    username: 'adv_litigation_check_44',
-    password: 'MockCourtsPass#89',
-    email: 'court.records@bgverify-corp.com',
-    authNotes: 'Pan-India district and high courts judicial case history and civil/criminal litigation records.',
+    authNotes: 'Demo verification portal — Official Government academic depository. You can test or add custom institutional portals.',
   },
 ];
 
@@ -243,15 +193,21 @@ router.post(
       portal.testStatus = 'success';
       portal.testLogs = result.logs;
       portal.testScreenshot = result.screenshotBase64;
+      portal.isLiveSnapshot = result.isLiveSnapshot;
+      portal.captureType = result.captureType;
       await portal.save();
 
       res.status(200).json({
         success: true,
-        message: `Playwright bot connected & logged into "${portal.name}" successfully!`,
+        message: result.isLiveSnapshot
+          ? `Playwright connected & captured live screenshot from "${portal.name}"!`
+          : `Portal connection offline — tested via sandboxed institutional clearance docket`,
         data: {
           portal,
           screenshotBase64: result.screenshotBase64,
           logs: result.logs,
+          isLiveSnapshot: result.isLiveSnapshot,
+          captureType: result.captureType,
         },
       });
     } catch (error: any) {

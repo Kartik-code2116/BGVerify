@@ -77,6 +77,8 @@ export interface IVerification extends Document {
   botLogs?: string[];
   evidenceScreenshotBase64?: string;
   evidenceSha256?: string;
+  isLiveSnapshot?: boolean;
+  captureType?: 'live_portal_capture' | 'simulated_fallback';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -207,6 +209,15 @@ const verificationSchema = new Schema<IVerification>(
     botLogs: [String],
     evidenceScreenshotBase64: String,
     evidenceSha256: String,
+    isLiveSnapshot: {
+      type: Boolean,
+      default: false,
+    },
+    captureType: {
+      type: String,
+      enum: ['live_portal_capture', 'simulated_fallback'],
+      default: 'simulated_fallback',
+    },
   },
   {
     timestamps: true,
