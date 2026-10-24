@@ -80,6 +80,27 @@ class VerificationController {
       next(error);
     }
   }
+
+  async rerunBot(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const organizationId = req.user!.role === 'admin' ? null : req.user!.organizationId!;
+      const verification = await verificationService.rerunBot(
+        req.params.id,
+        organizationId,
+        {
+          headless: req.body.headless !== undefined ? Boolean(req.body.headless) : true,
+          simulateDiscrepancy: req.body.simulateDiscrepancy,
+        }
+      );
+      res.status(200).json({
+        success: true,
+        message: 'Playwright automation bot completed successfully!',
+        data: verification,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const verificationController = new VerificationController();

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { verificationAPI, candidateAPI } from '../services/api';
-import { X, ShieldCheck, Coins, Bot, Sparkles, Building, GraduationCap, Hash, Calendar } from 'lucide-react';
+import { X, ShieldCheck, Coins, Bot, Sparkles, Building, GraduationCap, Hash, Calendar, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const verificationTypes = [
@@ -19,6 +19,10 @@ export default function NewVerificationModal({ isOpen, onClose, onSuccess, initi
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [liveBrowserMode, setLiveBrowserMode] = useState(() => {
+    return localStorage.getItem('bgverify_live_browser_mode') === 'true';
+  });
+  const [simulateDiscrepancy, setSimulateDiscrepancy] = useState(false);
 
   const [formData, setFormData] = useState({
     candidateId: initialCandidateId || '',
@@ -117,10 +121,19 @@ export default function NewVerificationModal({ isOpen, onClose, onSuccess, initi
         candidateId: formData.candidateId,
         verificationType: formData.verificationType,
         priority: formData.priority,
-        inputData,
+        headless: !liveBrowserMode,
+        inputData: {
+          ...inputData,
+          simulateDiscrepancy,
+          headless: !liveBrowserMode,
+        },
       });
 
-      toast.success('Verification check dispatched & Playwright bot query completed!');
+      toast.success(
+        liveBrowserMode
+          ? '🚀 Playwright Chromium window launched & verification executed!'
+          : '✅ Verification check dispatched & Playwright bot query completed!'
+      );
       if (onSuccess) onSuccess();
       onClose();
     } catch (err) {
@@ -360,15 +373,96 @@ export default function NewVerificationModal({ isOpen, onClose, onSuccess, initi
                 <option value="urgent">Urgent / Real-Time Bot Dispatch</option>
               </select>
             </div>
+
+            {/* Playwright Automation Browser & Scenario Controls */}
+            <div className="p-3.5 rounded-xl border border-blue-500/30 bg-blue-950/20 space-y-3 mt-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Bot size={16} className="text-blue-400" />
+                  <span className="text-xs font-bold text-white">Playwright Browser Agent Settings</span>
+                </div>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 font-semibold">
+                  Chromium Engine
+                </span>
+              </div>
+
+              {/* Toggle 1: Live Headed Chromium Window vs Headless */}
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-900/60 border border-slate-800">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-200">
+                    {liveBrowserMode ? <Eye size={14} className="text-emerald-400" /> : <EyeOff size={14} className="text-slate-400" />}
+                    <span>Watch Real Chromium Browser Window</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    {liveBrowserMode
+                      ? 'Opens real visible Chromium window on your screen to watch the bot verify credentials.'
+                      : 'Runs silently in background (headless sandbox).'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !liveBrowserMode;
+                    setLiveBrowserMode(next);
+                    localStorage.setItem('bgverify_live_browser_mode', String(next));
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                    liveBrowserMode
+                      ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
+                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  {liveBrowserMode ? 'LIVE: ON' : 'BACKGROUND'}
+                </button>
+              </div>
+
+              {/* Toggle 2: Discrepancy Injection (Clean Pass vs Discrepancy Queue) */}
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-900/60 border border-slate-800">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-200">
+                    <AlertTriangle size={13} className={simulateDiscrepancy ? 'text-amber-400' : 'text-slate-400'} />
+                    <span>Test Discrepancy Simulation</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    {simulateDiscrepancy
+                      ? 'Flags date/title mismatch and routes candidate directly to Discrepancy Review Queue.'
+                      : 'Executes standard match with high AI confidence score.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSimulateDiscrepancy(!simulateDiscrepancy)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                    simulateDiscrepancy
+                      ? 'bg-amber-500 text-slate-950 font-black'
+                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  {simulateDiscrepancy ? 'DISCREPANCY' : 'CLEAN MATCH'}
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={submitting}>
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={submitting}>
-              {submitting ? 'Running Bot...' : 'Launch Playwright Verification (1 BGCoin)'}
-            </button>
+          <div className="modal-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+              Mode: <strong style={{ color: liveBrowserMode ? '#34d399' : '#94a3b8' }}>{liveBrowserMode ? 'Headed (Watch Live)' : 'Headless (Background)'}</strong>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button type="button" className="btn btn-secondary" onClick={onClose} disabled={submitting}>
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={submitting}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+              >
+                <Bot size={16} />
+                {submitting ? 'Running Playwright Bot...' : 'Launch Playwright Verification (1 BGCoin)'}
+              </button>
+            </div>
           </div>
         </form>
       </div>

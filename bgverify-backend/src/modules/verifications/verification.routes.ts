@@ -26,6 +26,13 @@ router.get('/', verificationController.list);
 // GET /api/v1/verifications/:id — get single verification
 router.get('/:id', verificationController.getById);
 
+// POST /api/v1/verifications/:id/rerun — re-run Playwright bot verification
+router.post(
+  '/:id/rerun',
+  authorize('admin', 'org_owner', 'hr_admin', 'hr_executive'),
+  verificationController.rerunBot
+);
+
 // PATCH /api/v1/verifications/:id — update verification
 router.patch(
   '/:id',

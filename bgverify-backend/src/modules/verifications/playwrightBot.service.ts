@@ -28,6 +28,7 @@ export class PlaywrightBotService {
     candidate: any;
     verificationType: string;
     inputData?: Record<string, any>;
+    headless?: boolean;
   }): Promise<PlaywrightExecutionResult> {
     const { candidate, verificationType, inputData = {} } = params;
     const startTime = Date.now();
@@ -44,13 +45,18 @@ export class PlaywrightBotService {
     let browser = null;
 
     try {
-      log(`Initializing Playwright Headless Chromium Engine...`);
+      const headless = params.headless !== undefined
+        ? params.headless
+        : (inputData.headless !== undefined ? Boolean(inputData.headless) : true);
+
+      log(`Initializing Playwright ${headless ? 'Headless' : 'Live Headed (Watch Mode)'} Chromium Engine...`);
       browser = await chromium.launch({
-        headless: true,
+        headless,
+        slowMo: headless ? 0 : 500, // in live headed mode, slows down so user can watch every action
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
       });
       const browserVersion = browser.version();
-      log(`Chromium sandboxed browser worker launched successfully (v${browserVersion})`);
+      log(`Chromium sandboxed browser worker launched successfully (v${browserVersion}) [Mode: ${headless ? 'Headless' : 'LIVE WATCH'}]`);
 
       const context = await browser.newContext({
         viewport: { width: 1200, height: 750 },
@@ -70,6 +76,8 @@ export class PlaywrightBotService {
       let result: 'match' | 'no_match' | 'partial_match' | 'needs_review' = 'match';
       let recommendedAction = 'Automated verification check passed with high confidence.';
 
+      const isDiscrepancy = Boolean(inputData.simulateDiscrepancy);
+
       const verificationRef = `BGV-AUTOBOT-${Date.now().toString(36).toUpperCase()}-${Math.floor(
         Math.random() * 9000 + 1000
       )}`;
@@ -82,29 +90,41 @@ export class PlaywrightBotService {
         const passingYear = inputData.endYear || edu.endYear || 2024;
         const grade = inputData.grade || edu.grade || 'First Class with Distinction';
 
+        const foundYear = isDiscrepancy ? (Number(passingYear) - 2) : passingYear;
+        const foundInstitution = isDiscrepancy ? `${institution} (Affiliated Unit)` : institution;
+
         log(`Navigating to University Examination & Registrar Clearinghouse Portal...`);
         log(`Entering query: Candidate Name="${candidateName}", Roll/PRN="${rollNumber}"`);
 
         fieldComparisons = [
           { field: 'Candidate Name', submitted: candidateName, found: candidateName, isMatch: true },
-          { field: 'University / Board', submitted: institution, found: institution, isMatch: true },
+          { field: 'University / Board', submitted: institution, found: foundInstitution, isMatch: !isDiscrepancy },
           { field: 'Degree / Program', submitted: degree, found: degree, isMatch: true },
           { field: 'Roll / PRN Number', submitted: String(rollNumber), found: String(rollNumber), isMatch: true },
-          { field: 'Graduation Year', submitted: String(passingYear), found: String(passingYear), isMatch: true },
+          { field: 'Graduation Year', submitted: String(passingYear), found: String(foundYear), isMatch: !isDiscrepancy },
           { field: 'Academic Grade', submitted: grade, found: grade, isMatch: true },
         ];
 
-        summary = `University records verified via automated Playwright registrar bot. Student Roll/PRN ${rollNumber} confirmed for ${candidateName} at ${institution}.`;
-        confidence = 0.96;
-        recommendedAction = 'Cleared - Academic credentials verified directly against university examination records.';
+        if (isDiscrepancy) {
+          status = 'manual_review';
+          result = 'partial_match';
+          confidence = 0.68;
+          flags = [`Graduation year mismatch: Resume claimed ${passingYear}, official university registry recorded ${foundYear}`];
+          summary = `Discrepancy detected: Student Roll/PRN ${rollNumber} found, but graduation year in university records is ${foundYear} vs ${passingYear} on candidate resume.`;
+          recommendedAction = 'Routed to Discrepancy Review Queue - HR must examine uploaded degree certificate for date accuracy.';
+        } else {
+          summary = `University records verified via automated Playwright registrar bot. Student Roll/PRN ${rollNumber} confirmed for ${candidateName} at ${institution}.`;
+          confidence = 0.96;
+          recommendedAction = 'Cleared - Academic credentials verified directly against university examination records.';
+        }
 
         htmlContent = this.generateEducationPortalHtml({
           verificationRef,
           candidateName,
-          institution,
+          institution: foundInstitution,
           degree,
           rollNumber,
-          passingYear,
+          passingYear: foundYear,
           grade,
           browserVersion,
         });
@@ -116,27 +136,38 @@ export class PlaywrightBotService {
         const startDate = inputData.startDate || emp.startDate || 'Jan 2023';
         const endDate = inputData.endDate || emp.endDate || 'Present';
 
+        const foundRole = isDiscrepancy ? 'Associate Trainee' : designation;
+
         log(`Navigating to Corporate Verification Clearinghouse & Employer Registry...`);
         log(`Entering query: Company="${company}", Candidate="${candidateName}", EmpID="${employeeId}"`);
 
         fieldComparisons = [
           { field: 'Candidate Name', submitted: candidateName, found: candidateName, isMatch: true },
           { field: 'Employer Name', submitted: company, found: company, isMatch: true },
-          { field: 'Designation / Role', submitted: designation, found: designation, isMatch: true },
+          { field: 'Designation / Role', submitted: designation, found: foundRole, isMatch: !isDiscrepancy },
           { field: 'Employee ID', submitted: employeeId, found: employeeId, isMatch: true },
           { field: 'Tenure Start Date', submitted: String(startDate), found: String(startDate), isMatch: true },
           { field: 'Tenure End Date', submitted: String(endDate), found: String(endDate), isMatch: true },
         ];
 
-        summary = `Corporate employment records validated via automated employer verification bot. Active designation and tenure confirmed at ${company}.`;
-        confidence = 0.94;
-        recommendedAction = 'Cleared - Corporate employment history authenticated with registered HR database.';
+        if (isDiscrepancy) {
+          status = 'manual_review';
+          result = 'partial_match';
+          confidence = 0.64;
+          flags = [`Role mismatch: Resume claims "${designation}", employer registry lists "${foundRole}"`];
+          summary = `Employment confirmed at ${company}, but role was recorded as "${foundRole}" instead of submitted title "${designation}".`;
+          recommendedAction = 'Routed to Discrepancy Review Queue - Verify experience letter or promotion documentation.';
+        } else {
+          summary = `Corporate employment records validated via automated employer verification bot. Active designation and tenure confirmed at ${company}.`;
+          confidence = 0.94;
+          recommendedAction = 'Cleared - Corporate employment history authenticated with registered HR database.';
+        }
 
         htmlContent = this.generateEmploymentPortalHtml({
           verificationRef,
           candidateName,
           company,
-          designation,
+          designation: foundRole,
           employeeId,
           startDate,
           endDate,
@@ -188,8 +219,8 @@ export class PlaywrightBotService {
 
       log(`Query returned HTTP 200 OK — DOM parsed successfully (${htmlContent.length} bytes)`);
 
-      // Wait a fraction of a second to allow rendering
-      await page.waitForTimeout(400);
+      // In headed mode, give user 1.2s to watch the rendered portal before capture
+      await page.waitForTimeout(headless ? 300 : 1400);
 
       log(`Capturing full-page evidence screenshot via Playwright Page API...`);
       const screenshotBuffer = await page.screenshot({ fullPage: true, type: 'png' });
@@ -198,6 +229,11 @@ export class PlaywrightBotService {
       const evidenceSha256 = crypto.createHash('sha256').update(screenshotBuffer).digest('hex');
       log(`Computed SHA-256 cryptographic evidence hash: sha256_${evidenceSha256.slice(0, 16)}...`);
       log(`Audit trail signed with BGVerify Autonomous Bot Private Key`);
+
+      if (!headless) {
+        log(`[Watch Mode] Keeping Chromium visible briefly for inspection...`);
+        await page.waitForTimeout(1000);
+      }
 
       await browser.close();
       browser = null;

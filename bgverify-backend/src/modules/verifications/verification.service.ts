@@ -131,6 +131,7 @@ class VerificationService {
         candidate,
         verificationType: input.verificationType,
         inputData: input.inputData,
+        headless: input.headless !== undefined ? input.headless : true,
       });
 
       await Verification.findByIdAndUpdate(verificationId, {
@@ -158,6 +159,61 @@ class VerificationService {
     } catch (err) {
       logger.error('Error processing automated Playwright verification pipeline:', err);
     }
+  }
+
+  /**
+   * Re-run Playwright automation on an existing verification check
+   */
+  async rerunBot(
+    verificationId: string,
+    organizationId: string | null,
+    options: { headless?: boolean; simulateDiscrepancy?: boolean } = {}
+  ) {
+    const query: any = { _id: verificationId };
+    if (organizationId) query.organizationId = organizationId;
+
+    const verification = await Verification.findOne(query).populate('candidateId');
+    if (!verification) {
+      throw new NotFoundError('Verification record not found');
+    }
+
+    const candidate = verification.candidateId;
+    if (!candidate) {
+      throw new NotFoundError('Associated candidate profile not found');
+    }
+
+    const inputData = {
+      ...(verification.inputData || {}),
+      simulateDiscrepancy: options.simulateDiscrepancy,
+    };
+
+    const headless = options.headless !== undefined ? options.headless : true;
+
+    logger.info(`Re-running Playwright bot for ${verification._id} (headless: ${headless}, discrepancy: ${options.simulateDiscrepancy})...`);
+
+    const botResult = await playwrightBotService.executeVerification({
+      candidate,
+      verificationType: verification.verificationType,
+      inputData,
+      headless,
+    });
+
+    verification.status = botResult.status;
+    verification.result = botResult.result;
+    verification.completedAt = new Date();
+    verification.aiAnalysis = {
+      confidence: botResult.confidence,
+      summary: botResult.summary,
+      fieldComparisons: botResult.fieldComparisons,
+      flags: botResult.flags,
+      recommendedAction: botResult.recommendedAction,
+    };
+    verification.botLogs = botResult.botLogs;
+    verification.evidenceScreenshotBase64 = botResult.screenshotBase64;
+    verification.evidenceSha256 = botResult.evidenceSha256;
+    await verification.save();
+
+    return verification;
   }
 
   /**

@@ -19,16 +19,27 @@ import {
   MessageSquare,
   Sparkles,
   FileCheck2,
+  Play,
+  RefreshCw,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function EvidenceViewerModal({ verification, isOpen, onClose, onUpdated, initialTab = 'summary' }) {
+  const [curVerification, setCurVerification] = useState(verification);
   const [activeTab, setActiveTab] = useState(initialTab);
   const [reviewerNotes, setReviewerNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [isRerunning, setIsRerunning] = useState(false);
+  const [rerunLiveMode, setRerunLiveMode] = useState(() => {
+    return localStorage.getItem('bgverify_live_browser_mode') === 'true';
+  });
+  const [rerunDiscrepancy, setRerunDiscrepancy] = useState(false);
 
   useEffect(() => {
     if (verification) {
+      setCurVerification(verification);
       setReviewerNotes(verification.reviewerNotes || '');
       if (initialTab) {
         setActiveTab(initialTab);
@@ -36,9 +47,43 @@ export default function EvidenceViewerModal({ verification, isOpen, onClose, onU
     }
   }, [verification, initialTab, isOpen]);
 
-  if (!isOpen || !verification) return null;
+  if (!isOpen || !curVerification) return null;
 
-  const ai = verification.aiAnalysis || {
+  const handleRerunBot = async () => {
+    if (!curVerification?._id) return;
+    setIsRerunning(true);
+    const toastId = toast.loading(
+      rerunLiveMode
+        ? '🤖 Launching visible Chromium window on your screen...'
+        : '🤖 Running Playwright verification in background...'
+    );
+    try {
+      const res = await verificationAPI.rerunBot(curVerification._id, {
+        headless: !rerunLiveMode,
+        simulateDiscrepancy: rerunDiscrepancy,
+      });
+      const updated = res.data?.data?.verification;
+      if (updated) {
+        setCurVerification(updated);
+        toast.success(
+          rerunDiscrepancy
+            ? 'Playwright detected discrepancy & flagged for review!'
+            : 'Playwright verification bot completed cleanly!',
+          { id: toastId }
+        );
+        if (onUpdated) onUpdated(updated);
+      }
+    } catch (err) {
+      console.error('Bot rerun error:', err);
+      toast.error(err.response?.data?.error?.message || 'Failed to re-run Playwright bot', { id: toastId });
+    } finally {
+      setIsRerunning(false);
+    }
+  };
+
+  const activeVerification = curVerification;
+
+  const ai = activeVerification.aiAnalysis || {
     confidence: 0.95,
     summary: 'Automated verification check performed via Playwright browser bot.',
     fieldComparisons: [
@@ -50,7 +95,7 @@ export default function EvidenceViewerModal({ verification, isOpen, onClose, onU
     recommendedAction: 'Automated verification completed with high confidence.',
   };
 
-  const candidate = verification.candidateId || {};
+  const candidate = activeVerification.candidateId || {};
 
   const handleReviewAction = async (newStatus, newResult) => {
     setSubmitting(true);
@@ -61,7 +106,7 @@ export default function EvidenceViewerModal({ verification, isOpen, onClose, onU
       if (newStatus) payload.status = newStatus;
       if (newResult) payload.result = newResult;
 
-      const res = await verificationAPI.update(verification._id, payload);
+      const res = await verificationAPI.update(activeVerification._id, payload);
 
       let msg = 'Review saved successfully!';
       if (newStatus === 'completed' && newResult === 'match') {
@@ -112,13 +157,13 @@ export default function EvidenceViewerModal({ verification, isOpen, onClose, onU
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <h3 style={{ textTransform: 'capitalize' }}>
-                  {verification.verificationType} Verification
+                  {activeVerification.verificationType} Verification
                 </h3>
-                <span className={`status-badge ${verification.status}`}>
-                  {verification.status?.replace('_', ' ')}
+                <span className={`status-badge ${activeVerification.status}`}>
+                  {activeVerification.status?.replace('_', ' ')}
                 </span>
-                <span className={`status-badge ${verification.result}`}>
-                  {verification.result}
+                <span className={`status-badge ${activeVerification.result}`}>
+                  {activeVerification.result}
                 </span>
               </div>
               <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
@@ -139,7 +184,7 @@ export default function EvidenceViewerModal({ verification, isOpen, onClose, onU
             {
               id: 'review',
               label: 'Manual Review & Notes',
-              badge: verification.status === 'manual_review' ? 'Action Required' : null,
+              badge: activeVerification.status === 'manual_review' ? 'Action Required' : null,
             },
           ].map((tab) => (
             <button
@@ -281,6 +326,133 @@ export default function EvidenceViewerModal({ verification, isOpen, onClose, onU
 
           {activeTab === 'bot' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Playwright Bot Execution Controls */}
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.9))',
+                  borderRadius: '12px',
+                  padding: '14px 18px',
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Bot size={18} style={{ color: '#38bdf8' }} />
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#f8fafc' }}>
+                      Playwright Autonomous Browser Engine Controls
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {/* Live Browser Headed / Headless Toggle */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = !rerunLiveMode;
+                        setRerunLiveMode(next);
+                        localStorage.setItem('bgverify_live_browser_mode', String(next));
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '20px',
+                        border: rerunLiveMode ? '1px solid #10b981' : '1px solid #475569',
+                        background: rerunLiveMode ? 'rgba(16, 185, 129, 0.15)' : 'rgba(15, 23, 42, 0.6)',
+                        color: rerunLiveMode ? '#34d399' : '#94a3b8',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        transition: 'all 0.2s',
+                      }}
+                      title="Toggle visible headed Chromium browser vs silent background worker"
+                    >
+                      {rerunLiveMode ? <Eye size={14} /> : <EyeOff size={14} />}
+                      {rerunLiveMode ? '👁️ Live Headed Browser (Visible Window)' : '⚡ Background Headless'}
+                    </button>
+
+                    {/* Simulate Discrepancy Toggle */}
+                    <label
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '12px',
+                        color: rerunDiscrepancy ? '#f59e0b' : '#94a3b8',
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                        background: rerunDiscrepancy ? 'rgba(245, 158, 11, 0.12)' : 'transparent',
+                        padding: '6px 10px',
+                        borderRadius: '8px',
+                        border: rerunDiscrepancy ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid transparent',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={rerunDiscrepancy}
+                        onChange={(e) => setRerunDiscrepancy(e.target.checked)}
+                        style={{ accentColor: '#f59e0b', cursor: 'pointer' }}
+                      />
+                      <span>Inject Test Discrepancy</span>
+                    </label>
+
+                    {/* Rerun Button */}
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={handleRerunBot}
+                      disabled={isRerunning}
+                      style={{
+                        background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                        color: 'white',
+                        fontWeight: 600,
+                        padding: '7px 14px',
+                        boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+                      }}
+                    >
+                      {isRerunning ? (
+                        <>
+                          <RefreshCw size={13} className="animate-spin" />
+                          Running Bot...
+                        </>
+                      ) : (
+                        <>
+                          <Play size={13} />
+                          Re-run Bot Now
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {isRerunning && (
+                  <div
+                    style={{
+                      background: 'rgba(59, 130, 246, 0.15)',
+                      border: '1px solid rgba(59, 130, 246, 0.3)',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      color: '#93c5fd',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <RefreshCw size={14} className="animate-spin" style={{ color: '#38bdf8' }} />
+                    <span>
+                      {rerunLiveMode
+                        ? 'Opening visible Chromium browser on your screen with slow-motion execution. Check your taskbar / screen!'
+                        : 'Playwright autonomous browser agent is navigating institutional clearinghouse in background...'}
+                    </span>
+                  </div>
+                )}
+              </div>
+
               {/* Playwright Real Execution Console */}
               <div
                 style={{
@@ -299,13 +471,13 @@ export default function EvidenceViewerModal({ verification, isOpen, onClose, onU
                   <span>🤖 Playwright Autonomous Chromium Bot Session Trail</span>
                   <span style={{ color: '#34d399', fontSize: '11px' }}>● Live Execution Completed</span>
                 </div>
-                {verification.botLogs && verification.botLogs.length > 0 ? (
-                  verification.botLogs.map((logLine, idx) => {
+                {activeVerification.botLogs && activeVerification.botLogs.length > 0 ? (
+                  activeVerification.botLogs.map((logLine, idx) => {
                     let color = '#94a3b8';
                     if (logLine.includes('Playwright') || logLine.includes('Chromium') || logLine.includes('launched')) color = '#38bdf8';
                     else if (logLine.includes('HTTP 200') || logLine.includes('successfully') || logLine.includes('cleanly') || logLine.includes('Verified')) color = '#34d399';
                     else if (logLine.includes('screenshot') || logLine.includes('hash')) color = '#fbbf24';
-                    else if (logLine.includes('Error')) color = '#f87171';
+                    else if (logLine.includes('Error') || logLine.includes('Discrepancy') || logLine.includes('Mismatch')) color = '#f87171';
                     return <div key={idx} style={{ color }}>{logLine}</div>;
                   })
                 ) : (
@@ -316,13 +488,13 @@ export default function EvidenceViewerModal({ verification, isOpen, onClose, onU
                     <div style={{ color: '#94a3b8' }}>&gt; Submitting search parameters: Name=&quot;{candidate.firstName} {candidate.lastName}&quot;</div>
                     <div style={{ color: '#10b981' }}>&gt; Search returned HTTP 200 OK — DOM parsed successfully</div>
                     <div style={{ color: '#60a5fa' }}>&gt; Capturing full-page evidence screenshot</div>
-                    <div style={{ color: '#10b981' }}>&gt; Job status: {verification.status} | Digital Signature Verified</div>
+                    <div style={{ color: '#10b981' }}>&gt; Job status: {activeVerification.status} | Digital Signature Verified</div>
                   </>
                 )}
               </div>
 
               {/* Real Evidence Screenshot Captured by Playwright */}
-              {verification.evidenceScreenshotBase64 && (
+              {activeVerification.evidenceScreenshotBase64 && (
                 <div
                   style={{
                     background: 'var(--bg-elevated)',
@@ -351,7 +523,7 @@ export default function EvidenceViewerModal({ verification, isOpen, onClose, onU
                     }}
                   >
                     <img
-                      src={verification.evidenceScreenshotBase64}
+                      src={activeVerification.evidenceScreenshotBase64}
                       alt="Playwright Evidence Capture"
                       style={{ width: '100%', height: 'auto', display: 'block' }}
                     />
@@ -373,10 +545,10 @@ export default function EvidenceViewerModal({ verification, isOpen, onClose, onU
                   Cryptographic Evidence Hash & Storage Key
                 </h5>
                 <p style={{ color: 'var(--text-muted)' }}>
-                  Storage Key: <code style={{ color: '#38bdf8' }}>restricted/{verification.organizationId}/evidence/{verification._id}.png</code>
+                  Storage Key: <code style={{ color: '#38bdf8' }}>restricted/{activeVerification.organizationId}/evidence/{activeVerification._id}.png</code>
                 </p>
                 <p style={{ color: 'var(--text-muted)', marginTop: '4px' }}>
-                  SHA-256 Digest: <code style={{ color: '#a78bfa' }}>{verification.evidenceSha256 || 'sha256_e814d9b1d98e4f16a693c06d86d7c71180b53ef'}</code>
+                  SHA-256 Digest: <code style={{ color: '#a78bfa' }}>{activeVerification.evidenceSha256 || 'sha256_e814d9b1d98e4f16a693c06d86d7c71180b53ef'}</code>
                 </p>
               </div>
             </div>

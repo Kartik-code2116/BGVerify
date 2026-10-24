@@ -57,6 +57,7 @@ export const verificationAPI = {
   getById: (id) => api.get(`/verifications/${id}`),
   update: (id, data) => api.patch(`/verifications/${id}`, data),
   getStats: () => api.get('/verifications/stats'),
+  rerunBot: (id, data) => api.post(`/verifications/${id}/rerun`, data),
 };
 
 // ─── Candidate Service ───────────────────────────────────

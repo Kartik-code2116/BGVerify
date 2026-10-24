@@ -10,6 +10,7 @@ export const createVerificationSchema = z.object({
   ]),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
   inputData: z.record(z.any()).optional(),
+  headless: z.boolean().optional(),
 });
 
 export const updateVerificationSchema = z.object({
