@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { verificationAPI, candidateAPI } from '../services/api';
-import { X, ShieldCheck, Coins, Bot, Sparkles, Building, GraduationCap, Hash, Calendar, Eye, EyeOff, AlertTriangle } from 'lucide-react';
+import { verificationAPI, candidateAPI, portalAPI } from '../services/api';
+import { X, ShieldCheck, Coins, Bot, Sparkles, Building, GraduationCap, Hash, Calendar, Eye, EyeOff, AlertTriangle, Globe } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const verificationTypes = [
@@ -23,6 +23,10 @@ export default function NewVerificationModal({ isOpen, onClose, onSuccess, initi
     return localStorage.getItem('bgverify_live_browser_mode') === 'true';
   });
   const [simulateDiscrepancy, setSimulateDiscrepancy] = useState(false);
+  const [dbPortals, setDbPortals] = useState([]);
+  const [selectedPortalName, setSelectedPortalName] = useState('');
+  const [selectedPortalUrl, setSelectedPortalUrl] = useState('');
+  const [isCustomPortal, setIsCustomPortal] = useState(false);
 
   const [formData, setFormData] = useState({
     candidateId: initialCandidateId || '',
@@ -47,8 +51,35 @@ export default function NewVerificationModal({ isOpen, onClose, onSuccess, initi
   useEffect(() => {
     if (isOpen) {
       loadCandidates();
+      loadPortals();
     }
   }, [isOpen]);
+
+  const loadPortals = async () => {
+    try {
+      const res = await portalAPI.list();
+      const list = res.data?.data || [];
+      setDbPortals(list);
+      // Pre-select portal for current verification type
+      const match = list.find((p) => p.category === formData.verificationType);
+      if (match) {
+        setSelectedPortalName(match.name);
+        setSelectedPortalUrl(match.searchUrl || match.loginUrl);
+      }
+    } catch (err) {
+      console.error('Failed to load portals:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (dbPortals.length > 0 && !isCustomPortal) {
+      const match = dbPortals.find((p) => p.category === formData.verificationType);
+      if (match) {
+        setSelectedPortalName(match.name);
+        setSelectedPortalUrl(match.searchUrl || match.loginUrl);
+      }
+    }
+  }, [formData.verificationType, dbPortals]);
 
   const loadCandidates = async () => {
     setLoading(true);
@@ -115,6 +146,13 @@ export default function NewVerificationModal({ isOpen, onClose, onSuccess, initi
         inputData.employeeId = formData.employeeId;
       } else if (formData.idNumber) {
         inputData.idNumber = formData.idNumber;
+      }
+
+      if (selectedPortalName) {
+        inputData.portalName = selectedPortalName;
+      }
+      if (selectedPortalUrl) {
+        inputData.portalUrl = selectedPortalUrl;
       }
 
       await verificationAPI.create({
@@ -230,6 +268,75 @@ export default function NewVerificationModal({ isOpen, onClose, onSuccess, initi
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* Target Portal Selector */}
+            <div className="form-group">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label className="form-label" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Globe size={14} style={{ color: '#38bdf8' }} />
+                  <span>Target Verification Portal (Playwright Automation Gate) *</span>
+                </label>
+                <span style={{ fontSize: '11px', color: '#34d399', fontWeight: 600 }}>
+                  ✓ Stored Credentials Linked
+                </span>
+              </div>
+              <select
+                className="form-select"
+                value={isCustomPortal ? 'custom' : selectedPortalName}
+                onChange={(e) => {
+                  if (e.target.value === 'custom') {
+                    setIsCustomPortal(true);
+                    setSelectedPortalName('');
+                    setSelectedPortalUrl('https://');
+                  } else {
+                    setIsCustomPortal(false);
+                    const match = dbPortals.find((p) => p.name === e.target.value);
+                    if (match) {
+                      setSelectedPortalName(match.name);
+                      setSelectedPortalUrl(match.searchUrl || match.loginUrl);
+                    } else {
+                      setSelectedPortalName(e.target.value);
+                    }
+                  }
+                }}
+              >
+                {dbPortals
+                  .filter((p) => p.category === formData.verificationType || p.category === 'custom')
+                  .map((p) => (
+                    <option key={p._id} value={p.name}>
+                      🏛️ {p.name} (Vault Login: {p.username})
+                    </option>
+                  ))}
+                <option value="National Academic Registrar Clearinghouse (NAD)">
+                  🏛️ National Academic Depository (Central Government Clearinghouse)
+                </option>
+                <option value="Corporate Verification Clearinghouse & Employer Registry">
+                  🏢 Corporate Employment Clearinghouse & EPFO Registry
+                </option>
+                <option value="custom">🌐 Enter Custom Portal / Website URL...</option>
+              </select>
+
+              {isCustomPortal && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' }}>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Portal Name (e.g. SPPU / Anna Univ)"
+                    value={selectedPortalName}
+                    onChange={(e) => setSelectedPortalName(e.target.value)}
+                    required
+                  />
+                  <input
+                    type="url"
+                    className="form-input"
+                    placeholder="https://portal.university.ac.in/verify"
+                    value={selectedPortalUrl}
+                    onChange={(e) => setSelectedPortalUrl(e.target.value)}
+                    required
+                  />
+                </div>
+              )}
             </div>
 
             {/* Dynamic Bot Query Parameters */}

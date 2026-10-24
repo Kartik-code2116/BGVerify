@@ -416,3 +416,28 @@ The database seeder provisions pre-configured accounts for all three portals. Yo
 | **HR Manager (TechStart)** | `hiring@techstart.io`| `HrPass123!` | 45 BGCoins balance, separate tenant workspace |
 | **Candidate (Rahul Sharma)**| `rahul.sharma@example.com` | `CandidatePass123!` | Consent granted, degree and experience documents uploaded |
 | **Candidate (Sneha Verma)** | `sneha.verma@example.com` | `CandidatePass123!` | Flagged date discrepancy case in manual review queue |
+
+
+                  ┌────────────────────────────────────────────────────────┐
+                  │              HR Verification Workflow                  │
+                  └──────────────────────────┬─────────────────────────────┘
+                                             │
+             ┌───────────────────────────────┴───────────────────────────────┐
+             │                                                               │
+             ▼                                                               ▼
+  Place 1: Candidates Page                                 Place 2: Discrepancy Review Queue
+  (/company/candidates)                                    (/company/review)
+  • HR clicks [Verify] on a student                        • Candidate claims with mismatches land here
+  • Student data is auto pre-filled                        • HR can cross-verify on [Other Portal]
+  • HR picks the Target Portal                             • HR can re-run the bot or decide in [Review & Act]
+             │                                                               │
+             └───────────────────────────────┬───────────────────────────────┘
+                                             │
+                                             ▼
+                              ┌─────────────────────────────┐
+                              │ Playwright Browser Bot      │
+                              │ • Uses stored credentials   │
+                              │ • Logs into selected portal │
+                              │ • Queries student's roll/ID │
+                              │ • Captures PNG evidence     │
+                              └─────────────────────────────┘
