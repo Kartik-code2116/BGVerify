@@ -90,6 +90,9 @@ class VerificationController {
         {
           headless: req.body.headless !== undefined ? Boolean(req.body.headless) : true,
           simulateDiscrepancy: req.body.simulateDiscrepancy,
+          portalName: req.body.portalName,
+          portalUrl: req.body.portalUrl,
+          customInputData: req.body.customInputData,
         }
       );
       res.status(200).json({

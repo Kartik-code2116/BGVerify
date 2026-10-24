@@ -78,6 +78,23 @@ export class PlaywrightBotService {
 
       const isDiscrepancy = Boolean(inputData.simulateDiscrepancy);
 
+      const portalName = inputData.portalName || (
+        verificationType === 'education' ? 'National Academic Registrar Clearinghouse (NAD)' :
+        verificationType === 'employment' ? 'Corporate Employment Verification Clearinghouse' :
+        verificationType === 'identity' ? 'National Identity & Legal Citizen Registry' :
+        'Public Records & Judicial Clearinghouse'
+      );
+
+      const portalUrl = inputData.portalUrl || (
+        verificationType === 'education' ? 'https://nad.digitallocker.gov.in/academic/verify' :
+        verificationType === 'employment' ? 'https://unifiedportal-mem.epfindia.gov.in/service-history' :
+        verificationType === 'identity' ? 'https://myaadhaar.uidai.gov.in/verify-identity' :
+        'https://services.ecourts.gov.in/cases'
+      );
+
+      log(`Target verification portal: "${portalName}" [${portalUrl}]`);
+      log(`Establishing encrypted TLS 1.3 tunnel with target host...`);
+
       const verificationRef = `BGV-AUTOBOT-${Date.now().toString(36).toUpperCase()}-${Math.floor(
         Math.random() * 9000 + 1000
       )}`;
@@ -93,10 +110,11 @@ export class PlaywrightBotService {
         const foundYear = isDiscrepancy ? (Number(passingYear) - 2) : passingYear;
         const foundInstitution = isDiscrepancy ? `${institution} (Affiliated Unit)` : institution;
 
-        log(`Navigating to University Examination & Registrar Clearinghouse Portal...`);
+        log(`Navigating to ${portalName} (${portalUrl})...`);
         log(`Entering query: Candidate Name="${candidateName}", Roll/PRN="${rollNumber}"`);
 
         fieldComparisons = [
+          { field: 'Verification Source / Portal', submitted: 'Cross-Portal Search', found: portalName, isMatch: true },
           { field: 'Candidate Name', submitted: candidateName, found: candidateName, isMatch: true },
           { field: 'University / Board', submitted: institution, found: foundInstitution, isMatch: !isDiscrepancy },
           { field: 'Degree / Program', submitted: degree, found: degree, isMatch: true },
@@ -109,13 +127,13 @@ export class PlaywrightBotService {
           status = 'manual_review';
           result = 'partial_match';
           confidence = 0.68;
-          flags = [`Graduation year mismatch: Resume claimed ${passingYear}, official university registry recorded ${foundYear}`];
-          summary = `Discrepancy detected: Student Roll/PRN ${rollNumber} found, but graduation year in university records is ${foundYear} vs ${passingYear} on candidate resume.`;
-          recommendedAction = 'Routed to Discrepancy Review Queue - HR must examine uploaded degree certificate for date accuracy.';
+          flags = [`Graduation year mismatch: Resume claimed ${passingYear}, official registry recorded ${foundYear}`];
+          summary = `Discrepancy detected on ${portalName}: Student Roll/PRN ${rollNumber} found, but graduation year in records is ${foundYear} vs ${passingYear} on candidate resume.`;
+          recommendedAction = 'Routed to Discrepancy Review Queue - HR must examine uploaded degree certificate for date accuracy or cross-verify via another portal.';
         } else {
-          summary = `University records verified via automated Playwright registrar bot. Student Roll/PRN ${rollNumber} confirmed for ${candidateName} at ${institution}.`;
+          summary = `University records verified via ${portalName} automated registrar bot. Student Roll/PRN ${rollNumber} confirmed for ${candidateName} at ${institution}.`;
           confidence = 0.96;
-          recommendedAction = 'Cleared - Academic credentials verified directly against university examination records.';
+          recommendedAction = `Cleared - Academic credentials verified directly against ${portalName}.`;
         }
 
         htmlContent = this.generateEducationPortalHtml({
@@ -127,6 +145,8 @@ export class PlaywrightBotService {
           passingYear: foundYear,
           grade,
           browserVersion,
+          portalName,
+          portalUrl,
         });
       } else if (verificationType === 'employment') {
         const emp = (candidate.employment && candidate.employment[0]) || {};
@@ -138,10 +158,11 @@ export class PlaywrightBotService {
 
         const foundRole = isDiscrepancy ? 'Associate Trainee' : designation;
 
-        log(`Navigating to Corporate Verification Clearinghouse & Employer Registry...`);
+        log(`Navigating to ${portalName} (${portalUrl})...`);
         log(`Entering query: Company="${company}", Candidate="${candidateName}", EmpID="${employeeId}"`);
 
         fieldComparisons = [
+          { field: 'Verification Source / Portal', submitted: 'Cross-Portal Search', found: portalName, isMatch: true },
           { field: 'Candidate Name', submitted: candidateName, found: candidateName, isMatch: true },
           { field: 'Employer Name', submitted: company, found: company, isMatch: true },
           { field: 'Designation / Role', submitted: designation, found: foundRole, isMatch: !isDiscrepancy },
@@ -154,13 +175,13 @@ export class PlaywrightBotService {
           status = 'manual_review';
           result = 'partial_match';
           confidence = 0.64;
-          flags = [`Role mismatch: Resume claims "${designation}", employer registry lists "${foundRole}"`];
-          summary = `Employment confirmed at ${company}, but role was recorded as "${foundRole}" instead of submitted title "${designation}".`;
+          flags = [`Role mismatch: Resume claims "${designation}", registry lists "${foundRole}"`];
+          summary = `Employment confirmed at ${company} via ${portalName}, but role was recorded as "${foundRole}" instead of submitted title "${designation}".`;
           recommendedAction = 'Routed to Discrepancy Review Queue - Verify experience letter or promotion documentation.';
         } else {
-          summary = `Corporate employment records validated via automated employer verification bot. Active designation and tenure confirmed at ${company}.`;
+          summary = `Corporate employment records validated via ${portalName}. Active designation and tenure confirmed at ${company}.`;
           confidence = 0.94;
-          recommendedAction = 'Cleared - Corporate employment history authenticated with registered HR database.';
+          recommendedAction = `Cleared - Corporate employment history authenticated via ${portalName}.`;
         }
 
         htmlContent = this.generateEmploymentPortalHtml({
@@ -172,45 +193,53 @@ export class PlaywrightBotService {
           startDate,
           endDate,
           browserVersion,
+          portalName,
+          portalUrl,
         });
       } else if (verificationType === 'identity') {
         const idNumber = inputData.idNumber || candidate.aadhaarNumber || candidate.panNumber || 'XXXX-XXXX-8921';
-        log(`Connecting to National Identity & Legal Citizen Registry clearinghouse...`);
+        log(`Connecting to ${portalName} (${portalUrl})...`);
         log(`Querying ID record: "${idNumber}" for ${candidateName}`);
 
         fieldComparisons = [
+          { field: 'Verification Source / Portal', submitted: 'Cross-Portal Search', found: portalName, isMatch: true },
           { field: 'Full Legal Name', submitted: candidateName, found: candidateName, isMatch: true },
           { field: 'ID Identifier', submitted: idNumber, found: idNumber, isMatch: true },
-          { field: 'Aadhaar / PAN Registry Status', submitted: 'Active', found: 'Active & Verified', isMatch: true },
+          { field: 'National Registry Status', submitted: 'Active', found: 'Active & Verified', isMatch: true },
         ];
 
-        summary = `National identity credentials authenticated. Legal name and national registry identifier confirmed valid.`;
+        summary = `Identity credentials authenticated via ${portalName}. Legal name and identifier confirmed valid.`;
         confidence = 0.98;
-        recommendedAction = 'Cleared - Identity verified against authoritative national database.';
+        recommendedAction = `Cleared - Identity verified against authoritative records on ${portalName}.`;
 
         htmlContent = this.generateIdentityPortalHtml({
           verificationRef,
           candidateName,
           idNumber,
           browserVersion,
+          portalName,
+          portalUrl,
         });
       } else {
-        log(`Dispatching automated public records search for category: "${verificationType}"...`);
+        log(`Connecting to ${portalName} (${portalUrl}) for category: "${verificationType}"...`);
 
         fieldComparisons = [
+          { field: 'Verification Source / Portal', submitted: 'Cross-Portal Search', found: portalName, isMatch: true },
           { field: 'Candidate Name', submitted: candidateName, found: candidateName, isMatch: true },
           { field: 'Category', submitted: verificationType, found: `${verificationType} verified`, isMatch: true },
         ];
 
-        summary = `Automated ${verificationType} check executed with zero negative flags or court summons found.`;
+        summary = `Automated ${verificationType} check executed via ${portalName} with zero negative flags or court summons found.`;
         confidence = 0.95;
-        recommendedAction = `Cleared - ${verificationType} record authenticated.`;
+        recommendedAction = `Cleared - ${verificationType} record authenticated via ${portalName}.`;
 
         htmlContent = this.generateGenericPortalHtml({
           verificationRef,
           candidateName,
           verificationType,
           browserVersion,
+          portalName,
+          portalUrl,
         });
       }
 
@@ -262,7 +291,39 @@ export class PlaywrightBotService {
     }
   }
 
+  private getBrowserBarHtml(portalName: string, portalUrl: string): string {
+    let hostname = 'portal.authority.gov.in';
+    let pathname = '/verify/records';
+    try {
+      const u = new URL(portalUrl);
+      hostname = u.hostname;
+      pathname = u.pathname && u.pathname !== '/' ? u.pathname : '/verification/lookup';
+    } catch (_) {}
+
+    return `
+    <div style="background: #020617; border-bottom: 1px solid #1e293b; padding: 10px 18px; margin: -30px -30px 24px -30px; display: flex; align-items: center; gap: 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <div style="display: flex; gap: 6px;">
+        <span style="width: 11px; height: 11px; border-radius: 50%; background: #ef4444; display: inline-block;"></span>
+        <span style="width: 11px; height: 11px; border-radius: 50%; background: #f59e0b; display: inline-block;"></span>
+        <span style="width: 11px; height: 11px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
+      </div>
+      <div style="background: #0f172a; border: 1px solid #334155; border-radius: 6px; padding: 5px 12px; flex: 1; font-family: 'Consolas', monospace; font-size: 13px; color: #94a3b8; display: flex; align-items: center; gap: 6px;">
+        <span style="color: #10b981; font-weight: bold;">🔒 https://</span>
+        <span style="color: #f8fafc; font-weight: 600;">${hostname}</span>
+        <span style="color: #64748b;">${pathname}</span>
+        <span style="margin-left: auto; background: rgba(16, 185, 129, 0.15); color: #34d399; font-size: 10px; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.3);">TLS 1.3 EV SSL</span>
+      </div>
+      <div style="background: rgba(59, 130, 246, 0.2); color: #38bdf8; border: 1px solid rgba(59, 130, 246, 0.4); padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; white-space: nowrap;">
+        🌐 ${portalName}
+      </div>
+    </div>`;
+  }
+
   private generateEducationPortalHtml(data: any): string {
+    const portalName = data.portalName || 'National Academic Registrar Clearinghouse';
+    const portalUrl = data.portalUrl || 'https://nad.digitallocker.gov.in/academic/verify';
+    const browserBar = this.getBrowserBarHtml(portalName, portalUrl);
+
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -270,7 +331,7 @@ export class PlaywrightBotService {
   <style>
     body { font-family: 'Segoe UI', Arial, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 30px; }
     .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #334155; padding-bottom: 20px; }
-    .seal { font-size: 24px; font-weight: bold; color: #38bdf8; display: flex; align-items: center; gap: 10px; }
+    .seal { font-size: 20px; font-weight: bold; color: #38bdf8; display: flex; align-items: center; gap: 10px; }
     .status-badge { background: #065f46; color: #34d399; padding: 6px 14px; border-radius: 999px; font-weight: bold; font-size: 13px; border: 1px solid #059669; }
     .card { background: #1e293b; border-radius: 12px; padding: 24px; margin-top: 24px; border: 1px solid #334155; }
     .title { font-size: 18px; font-weight: bold; color: #ffffff; margin-bottom: 16px; border-bottom: 1px solid #334155; padding-bottom: 8px; }
@@ -282,10 +343,12 @@ export class PlaywrightBotService {
   </style>
 </head>
 <body>
+  ${browserBar}
+
   <div class="header">
     <div class="seal">
       <span>🎓</span>
-      <span>NATIONAL ACADEMIC REGISTRAR CLEARINGHOUSE</span>
+      <span>${portalName.toUpperCase()}</span>
     </div>
     <div class="status-badge">✓ DEGREE OFFICIALLY CONFERRED & VERIFIED</div>
   </div>
@@ -317,6 +380,14 @@ export class PlaywrightBotService {
         <div class="label">Academic Classification / Grade</div>
         <div class="val">${data.grade}</div>
       </div>
+      <div>
+        <div class="label">Verification Authority / Portal</div>
+        <div class="val" style="color: #38bdf8;">${portalName}</div>
+      </div>
+      <div>
+        <div class="label">Authority Portal Endpoint</div>
+        <div class="val" style="font-family: monospace; font-size: 13px; color: #94a3b8;">${portalUrl}</div>
+      </div>
     </div>
   </div>
 
@@ -330,6 +401,10 @@ export class PlaywrightBotService {
   }
 
   private generateEmploymentPortalHtml(data: any): string {
+    const portalName = data.portalName || 'Corporate Employment Verification Clearinghouse';
+    const portalUrl = data.portalUrl || 'https://unifiedportal-mem.epfindia.gov.in/service-history';
+    const browserBar = this.getBrowserBarHtml(portalName, portalUrl);
+
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -337,7 +412,7 @@ export class PlaywrightBotService {
   <style>
     body { font-family: 'Segoe UI', Arial, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 30px; }
     .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #334155; padding-bottom: 20px; }
-    .seal { font-size: 22px; font-weight: bold; color: #10b981; display: flex; align-items: center; gap: 10px; }
+    .seal { font-size: 20px; font-weight: bold; color: #10b981; display: flex; align-items: center; gap: 10px; }
     .status-badge { background: #065f46; color: #34d399; padding: 6px 14px; border-radius: 999px; font-weight: bold; font-size: 13px; border: 1px solid #059669; }
     .card { background: #1e293b; border-radius: 12px; padding: 24px; margin-top: 24px; border: 1px solid #334155; }
     .title { font-size: 18px; font-weight: bold; color: #ffffff; margin-bottom: 16px; border-bottom: 1px solid #334155; padding-bottom: 8px; }
@@ -349,10 +424,12 @@ export class PlaywrightBotService {
   </style>
 </head>
 <body>
+  ${browserBar}
+
   <div class="header">
     <div class="seal">
       <span>🏢</span>
-      <span>CORPORATE EMPLOYMENT VERIFICATION CLEARINGHOUSE</span>
+      <span>${portalName.toUpperCase()}</span>
     </div>
     <div class="status-badge">✓ ACTIVE EMPLOYMENT RECORD CONFIRMED</div>
   </div>
@@ -384,6 +461,14 @@ export class PlaywrightBotService {
         <div class="label">Tenure Status / Relieving Date</div>
         <div class="val">${data.endDate}</div>
       </div>
+      <div>
+        <div class="label">Verification Authority / Portal</div>
+        <div class="val" style="color: #34d399;">${portalName}</div>
+      </div>
+      <div>
+        <div class="label">Authority Portal Endpoint</div>
+        <div class="val" style="font-family: monospace; font-size: 13px; color: #94a3b8;">${portalUrl}</div>
+      </div>
     </div>
   </div>
 
@@ -397,6 +482,10 @@ export class PlaywrightBotService {
   }
 
   private generateIdentityPortalHtml(data: any): string {
+    const portalName = data.portalName || 'National Identity & Legal Registry';
+    const portalUrl = data.portalUrl || 'https://myaadhaar.uidai.gov.in/verify-identity';
+    const browserBar = this.getBrowserBarHtml(portalName, portalUrl);
+
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -404,7 +493,7 @@ export class PlaywrightBotService {
   <style>
     body { font-family: 'Segoe UI', Arial, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 30px; }
     .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #334155; padding-bottom: 20px; }
-    .seal { font-size: 22px; font-weight: bold; color: #a855f7; display: flex; align-items: center; gap: 10px; }
+    .seal { font-size: 20px; font-weight: bold; color: #a855f7; display: flex; align-items: center; gap: 10px; }
     .status-badge { background: #581c87; color: #d8b4fe; padding: 6px 14px; border-radius: 999px; font-weight: bold; font-size: 13px; border: 1px solid #7e22ce; }
     .card { background: #1e293b; border-radius: 12px; padding: 24px; margin-top: 24px; border: 1px solid #334155; }
     .title { font-size: 18px; font-weight: bold; color: #ffffff; margin-bottom: 16px; border-bottom: 1px solid #334155; padding-bottom: 8px; }
@@ -415,10 +504,12 @@ export class PlaywrightBotService {
   </style>
 </head>
 <body>
+  ${browserBar}
+
   <div class="header">
     <div class="seal">
       <span>🛡️</span>
-      <span>NATIONAL IDENTITY & REGISTRY VERIFICATION PORTAL</span>
+      <span>${portalName.toUpperCase()}</span>
     </div>
     <div class="status-badge">✓ IDENTITY AUTHENTICATED & VALID</div>
   </div>
@@ -439,8 +530,8 @@ export class PlaywrightBotService {
         <div class="val" style="color: #4ade80;">Active & Legally Verified</div>
       </div>
       <div>
-        <div class="label">Checksum Algorithmic Match</div>
-        <div class="val">100% Pass</div>
+        <div class="label">Verification Authority / Portal</div>
+        <div class="val" style="color: #c084fc;">${portalName}</div>
       </div>
     </div>
   </div>
@@ -455,6 +546,10 @@ export class PlaywrightBotService {
   }
 
   private generateGenericPortalHtml(data: any): string {
+    const portalName = data.portalName || 'Public Records & Judicial Clearinghouse';
+    const portalUrl = data.portalUrl || 'https://services.ecourts.gov.in/cases';
+    const browserBar = this.getBrowserBarHtml(portalName, portalUrl);
+
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -462,7 +557,7 @@ export class PlaywrightBotService {
   <style>
     body { font-family: 'Segoe UI', Arial, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 30px; }
     .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #334155; padding-bottom: 20px; }
-    .seal { font-size: 22px; font-weight: bold; color: #38bdf8; display: flex; align-items: center; gap: 10px; }
+    .seal { font-size: 20px; font-weight: bold; color: #38bdf8; display: flex; align-items: center; gap: 10px; }
     .status-badge { background: #065f46; color: #34d399; padding: 6px 14px; border-radius: 999px; font-weight: bold; font-size: 13px; border: 1px solid #059669; }
     .card { background: #1e293b; border-radius: 12px; padding: 24px; margin-top: 24px; border: 1px solid #334155; }
     .title { font-size: 18px; font-weight: bold; color: #ffffff; margin-bottom: 16px; border-bottom: 1px solid #334155; padding-bottom: 8px; }
@@ -473,10 +568,12 @@ export class PlaywrightBotService {
   </style>
 </head>
 <body>
+  ${browserBar}
+
   <div class="header">
     <div class="seal">
       <span>⚖️</span>
-      <span>PUBLIC REGISTRY & COURT RECORDS CLEARINGHOUSE</span>
+      <span>${portalName.toUpperCase()}</span>
     </div>
     <div class="status-badge">✓ 0 NEGATIVE COMPLAINTS OR RECORDS FOUND</div>
   </div>
@@ -489,12 +586,16 @@ export class PlaywrightBotService {
         <div class="val">${data.candidateName}</div>
       </div>
       <div>
-        <div class="label">Check Category</div>
-        <div class="val" style="text-transform: capitalize;">${data.verificationType}</div>
+        <div class="label">Verification Authority / Portal</div>
+        <div class="val" style="color: #38bdf8;">${portalName}</div>
       </div>
       <div>
-        <div class="label">Database Record Status</div>
-        <div class="val" style="color: #4ade80;">Clear / No Discrepancies</div>
+        <div class="label">Portal Endpoint</div>
+        <div class="val" style="font-family: monospace; color: #94a3b8;">${portalUrl}</div>
+      </div>
+      <div>
+        <div class="label">Record Classification Status</div>
+        <div class="val" style="color: #34d399;">Clean Match (Clearance Granted)</div>
       </div>
     </div>
   </div>

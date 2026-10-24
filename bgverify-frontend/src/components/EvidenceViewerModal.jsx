@@ -23,8 +23,10 @@ import {
   RefreshCw,
   Eye,
   EyeOff,
+  Globe,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import CrossCheckPortalModal from './CrossCheckPortalModal';
 
 export default function EvidenceViewerModal({ verification, isOpen, onClose, onUpdated, initialTab = 'summary' }) {
   const [curVerification, setCurVerification] = useState(verification);
@@ -32,6 +34,7 @@ export default function EvidenceViewerModal({ verification, isOpen, onClose, onU
   const [reviewerNotes, setReviewerNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [isRerunning, setIsRerunning] = useState(false);
+  const [showCrossCheckModal, setShowCrossCheckModal] = useState(false);
   const [rerunLiveMode, setRerunLiveMode] = useState(() => {
     return localStorage.getItem('bgverify_live_browser_mode') === 'true';
   });
@@ -400,6 +403,27 @@ export default function EvidenceViewerModal({ verification, isOpen, onClose, onU
                       <span>Inject Test Discrepancy</span>
                     </label>
 
+                    {/* Cross-Check Other Portal */}
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setShowCrossCheckModal(true)}
+                      style={{
+                        background: 'rgba(14, 165, 233, 0.15)',
+                        border: '1px solid rgba(14, 165, 233, 0.4)',
+                        color: '#38bdf8',
+                        fontWeight: 600,
+                        padding: '7px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                      title="Cross-verify candidate against a different university, employer, or custom portal"
+                    >
+                      <Globe size={13} />
+                      <span>Verify from Other Portal</span>
+                    </button>
+
                     {/* Rerun Button */}
                     <button
                       type="button"
@@ -734,6 +758,18 @@ export default function EvidenceViewerModal({ verification, isOpen, onClose, onU
           </button>
         </div>
       </div>
+
+      {showCrossCheckModal && (
+        <CrossCheckPortalModal
+          isOpen={showCrossCheckModal}
+          onClose={() => setShowCrossCheckModal(false)}
+          verification={activeVerification}
+          onVerificationUpdated={(updated) => {
+            setCurVerification(updated);
+            if (onUpdated) onUpdated(updated);
+          }}
+        />
+      )}
     </div>
   );
 }

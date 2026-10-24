@@ -19,9 +19,11 @@ import {
   ShieldCheck,
   Check,
   ExternalLink,
+  Globe,
 } from 'lucide-react';
 import EvidenceViewerModal from '../../components/EvidenceViewerModal';
 import NewVerificationModal from '../../components/NewVerificationModal';
+import CrossCheckPortalModal from '../../components/CrossCheckPortalModal';
 import toast from 'react-hot-toast';
 
 export default function CompanyReviewQueuePage() {
@@ -30,6 +32,7 @@ export default function CompanyReviewQueuePage() {
   const [selectedVerification, setSelectedVerification] = useState(null);
   const [initialTab, setInitialTab] = useState('review');
   const [isNewVerificationModalOpen, setIsNewVerificationModalOpen] = useState(false);
+  const [crossCheckVerification, setCrossCheckVerification] = useState(null);
   const [walletBalance, setWalletBalance] = useState(null);
   const [rerunningMap, setRerunningMap] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
@@ -667,6 +670,23 @@ export default function CompanyReviewQueuePage() {
                               <span>Bot Trail</span>
                             </button>
 
+                            {/* Cross-Check Other Portal */}
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => setCrossCheckVerification(item)}
+                              title="Cross-verify candidate on external / secondary institutional portal"
+                              style={{
+                                padding: '6px 10px',
+                                fontSize: '12px',
+                                background: 'rgba(14, 165, 233, 0.12)',
+                                border: '1px solid rgba(14, 165, 233, 0.35)',
+                                color: '#38bdf8',
+                              }}
+                            >
+                              <Globe size={13} />
+                              <span>Other Portal</span>
+                            </button>
+
                             {/* Re-run Bot */}
                             <button
                               className="btn btn-secondary btn-sm"
@@ -719,6 +739,19 @@ export default function CompanyReviewQueuePage() {
             loadWallet();
           }}
           initialTab={initialTab}
+        />
+      )}
+
+      {/* External / Secondary Portal Cross-Check Modal */}
+      {crossCheckVerification && (
+        <CrossCheckPortalModal
+          isOpen={!!crossCheckVerification}
+          onClose={() => setCrossCheckVerification(null)}
+          verification={crossCheckVerification}
+          onVerificationUpdated={() => {
+            loadQueue();
+            loadWallet();
+          }}
         />
       )}
     </div>

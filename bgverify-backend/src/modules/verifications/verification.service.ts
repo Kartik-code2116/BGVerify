@@ -167,7 +167,13 @@ class VerificationService {
   async rerunBot(
     verificationId: string,
     organizationId: string | null,
-    options: { headless?: boolean; simulateDiscrepancy?: boolean } = {}
+    options: {
+      headless?: boolean;
+      simulateDiscrepancy?: boolean;
+      portalName?: string;
+      portalUrl?: string;
+      customInputData?: Record<string, any>;
+    } = {}
   ) {
     const query: any = { _id: verificationId };
     if (organizationId) query.organizationId = organizationId;
@@ -184,12 +190,23 @@ class VerificationService {
 
     const inputData = {
       ...(verification.inputData || {}),
-      simulateDiscrepancy: options.simulateDiscrepancy,
+      ...(options.customInputData || {}),
     };
+    if (options.simulateDiscrepancy !== undefined) {
+      inputData.simulateDiscrepancy = options.simulateDiscrepancy;
+    }
+    if (options.portalName) {
+      inputData.portalName = options.portalName;
+    }
+    if (options.portalUrl) {
+      inputData.portalUrl = options.portalUrl;
+    }
+
+    verification.inputData = inputData;
 
     const headless = options.headless !== undefined ? options.headless : true;
 
-    logger.info(`Re-running Playwright bot for ${verification._id} (headless: ${headless}, discrepancy: ${options.simulateDiscrepancy})...`);
+    logger.info(`Re-running Playwright bot for ${verification._id} (headless: ${headless}, discrepancy: ${options.simulateDiscrepancy}, portal: ${options.portalName || 'default'})...`);
 
     const botResult = await playwrightBotService.executeVerification({
       candidate,

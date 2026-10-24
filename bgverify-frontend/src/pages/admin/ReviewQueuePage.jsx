@@ -9,14 +9,17 @@ import {
   RefreshCw,
   Bot,
   Play,
+  Globe,
 } from 'lucide-react';
 import EvidenceViewerModal from '../../components/EvidenceViewerModal';
+import CrossCheckPortalModal from '../../components/CrossCheckPortalModal';
 import toast from 'react-hot-toast';
 
 export default function ReviewQueuePage() {
   const [queue, setQueue] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedVerification, setSelectedVerification] = useState(null);
+  const [crossCheckVerification, setCrossCheckVerification] = useState(null);
   const [initialTab, setInitialTab] = useState('review');
   const [rerunningMap, setRerunningMap] = useState({});
 
@@ -267,6 +270,22 @@ export default function ReviewQueuePage() {
 
                             <button
                               className="btn btn-secondary btn-sm"
+                              onClick={() => setCrossCheckVerification(item)}
+                              title="Cross-verify candidate on external / secondary institutional portal"
+                              style={{
+                                padding: '6px 10px',
+                                fontSize: '12px',
+                                background: 'rgba(14, 165, 233, 0.12)',
+                                border: '1px solid rgba(14, 165, 233, 0.35)',
+                                color: '#38bdf8',
+                              }}
+                            >
+                              <Globe size={13} />
+                              <span>Other Portal</span>
+                            </button>
+
+                            <button
+                              className="btn btn-secondary btn-sm"
                               onClick={() => handleRerunBot(item)}
                               disabled={isRerunning}
                               title={`Re-run Playwright Bot (${liveBrowserMode ? 'Live Visible Window' : 'Background Headless'})`}
@@ -298,6 +317,15 @@ export default function ReviewQueuePage() {
           onClose={() => setSelectedVerification(null)}
           onUpdated={loadQueue}
           initialTab={initialTab}
+        />
+      )}
+
+      {crossCheckVerification && (
+        <CrossCheckPortalModal
+          isOpen={!!crossCheckVerification}
+          onClose={() => setCrossCheckVerification(null)}
+          verification={crossCheckVerification}
+          onVerificationUpdated={loadQueue}
         />
       )}
     </div>
