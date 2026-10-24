@@ -122,3 +122,12 @@ export const paymentAPI = {
   confirmSession: (id) => api.post(`/payments/session/${id}/confirm`),
   rejectSession: (id) => api.post(`/payments/session/${id}/reject`),
 };
+
+// ─── Verification Portals & Credentials Service ──────────
+export const portalAPI = {
+  list: () => api.get('/portals'),
+  create: (data) => api.post('/portals', data),
+  update: (id, data) => api.patch(`/portals/${id}`, data),
+  delete: (id) => api.delete(`/portals/${id}`),
+  testLogin: (id, data) => api.post(`/portals/${id}/test-login`, data),
+};

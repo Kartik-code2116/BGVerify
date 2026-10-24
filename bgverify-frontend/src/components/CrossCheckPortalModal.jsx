@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { verificationAPI } from '../services/api';
+import { verificationAPI, portalAPI } from '../services/api';
 import {
   X,
   Globe,
@@ -145,7 +145,28 @@ export default function CrossCheckPortalModal({
 
   const candidate = verification.candidateId || {};
   const vType = verification.verificationType || 'education';
-  const presets = PORTAL_PRESETS[vType] || PORTAL_PRESETS.education;
+  const [dbPortals, setDbPortals] = useState([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      portalAPI.list().then((res) => {
+        setDbPortals(res.data?.data || []);
+      }).catch((err) => console.error('Failed to load user portals:', err));
+    }
+  }, [isOpen]);
+
+  const defaultPresets = PORTAL_PRESETS[vType] || PORTAL_PRESETS.education;
+  const orgPortalsForType = dbPortals
+    .filter((p) => p.isActive && (p.category === vType || p.category === 'custom'))
+    .map((p) => ({
+      name: p.name,
+      url: p.searchUrl || p.loginUrl,
+      badge: 'Vault Credentials Configured',
+      description: `Configured credentials for username "${p.username}". ${p.authNotes || ''}`,
+      isOrgVault: true,
+    }));
+
+  const presets = [...orgPortalsForType, ...defaultPresets];
 
   // Selected preset index or 'custom'
   const [selectedPresetIndex, setSelectedPresetIndex] = useState(0);

@@ -17,6 +17,7 @@ import auditRoutes from './modules/audit/audit.routes';
 import roleRoutes from './modules/roles/role.routes';
 import sectorRoutes from './modules/sectors/sector.routes';
 import paymentSessionRoutes from './modules/payments/paymentSession.routes';
+import portalRoutes from './modules/portals/portal.routes';
 
 const app = express();
 
@@ -78,6 +79,7 @@ app.use(`${config.apiPrefix}/audit`, auditRoutes);
 app.use(`${config.apiPrefix}/roles`, roleRoutes);
 app.use(`${config.apiPrefix}/sectors`, sectorRoutes);
 app.use(`${config.apiPrefix}/payments`, paymentSessionRoutes);
+app.use(`${config.apiPrefix}/portals`, portalRoutes);
 
 // ─── Error Handling ──────────────────────────────────────
 app.use(notFoundHandler);

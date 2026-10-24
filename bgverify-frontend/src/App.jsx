@@ -24,6 +24,7 @@ import CandidatesPage from './pages/company/CandidatesPage';
 import HiringRolesPage from './pages/company/HiringRolesPage';
 import CompanyReviewQueuePage from './pages/company/CompanyReviewQueuePage';
 import CompanyWalletPage from './pages/company/CompanyWalletPage';
+import VerifyPortalsPage from './pages/company/VerifyPortalsPage';
 
 // Candidate Portal Pages
 import CandidateDashboardPage from './pages/candidate/CandidateDashboardPage';
@@ -89,6 +90,7 @@ export default function App() {
             <Route path="review" element={<ReviewQueuePage />} />
             <Route path="organizations" element={<AdminOrganizationsPage />} />
             <Route path="audit" element={<AdminAuditPage />} />
+            <Route path="portals" element={<VerifyPortalsPage />} />
           </Route>
 
           {/* Company (HR) Portal */}
@@ -105,6 +107,7 @@ export default function App() {
             <Route path="verifications" element={<CompanyVerificationsPage />} />
             <Route path="candidates" element={<CandidatesPage />} />
             <Route path="review" element={<CompanyReviewQueuePage />} />
+            <Route path="portals" element={<VerifyPortalsPage />} />
             <Route path="wallet" element={<CompanyWalletPage />} />
           </Route>
 

@@ -16,6 +16,7 @@ import {
   Bell,
   ChevronDown,
   Search,
+  Globe,
 } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 
@@ -24,6 +25,7 @@ const navItems = {
     { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
     { to: '/admin/verifications', icon: FileSearch, label: 'Verifications' },
     { to: '/admin/review', icon: Shield, label: 'Review Queue' },
+    { to: '/admin/portals', icon: Globe, label: 'Verify Portals' },
     { to: '/admin/organizations', icon: Building2, label: 'Company Accounts' },
     { to: '/admin/audit', icon: ScrollText, label: 'Audit & Security' },
   ],
@@ -33,6 +35,7 @@ const navItems = {
     { to: '/company/candidates', icon: Users, label: 'Candidates' },
     { to: '/company/verifications', icon: FileSearch, label: 'Verifications' },
     { to: '/company/review', icon: Shield, label: 'Review Queue' },
+    { to: '/company/portals', icon: Globe, label: 'Verify Portals' },
     { to: '/company/wallet', icon: Wallet, label: 'Wallet & BGCoins' },
   ],
   candidate: [
