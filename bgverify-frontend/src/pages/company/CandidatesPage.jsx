@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { candidateAPI, roleAPI, sectorAPI } from '../../services/api';
+import SectorBadge from '../../components/SectorBadge';
 import {
   Users,
   Plus,
@@ -512,19 +513,7 @@ export default function CandidatesPage() {
 
   const getSectorBadge = (sector) => {
     if (!sector) return null;
-    let color = 'bg-slate-700 text-slate-300 border-slate-600';
-    if (sector.includes('Tech')) color = 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30';
-    else if (sector.includes('Finan') || sector.includes('BFSI')) color = 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
-    else if (sector.includes('Health')) color = 'bg-rose-500/15 text-rose-300 border-rose-500/30';
-    else if (sector.includes('Logis')) color = 'bg-amber-500/15 text-amber-300 border-amber-500/30';
-    else if (sector.includes('Sales')) color = 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30';
-
-    return (
-      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold border ${color}`}>
-        <Layers size={10} />
-        {sector.split('&')[0].trim()}
-      </span>
-    );
+    return <SectorBadge sector={sector} sectorsList={sectors} size="xs" showIcon={true} />;
   };
 
   const getUrgencyBadge = (urgency) => {

@@ -24,7 +24,7 @@ const DEFAULT_SECTORS = [
 
 const sectorSchema = z.object({
   name: z.string().min(2),
-  color: z.enum(['cyan', 'emerald', 'rose', 'amber', 'purple', 'indigo', 'blue', 'orange']).default('cyan'),
+  color: z.string().min(2).default('cyan'),
   description: z.string().optional(),
   defaultChecks: z.array(z.string()).default(['education', 'employment', 'identity']),
 });

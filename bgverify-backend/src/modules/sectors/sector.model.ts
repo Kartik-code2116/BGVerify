@@ -21,7 +21,7 @@ const sectorSchema = new Schema<ISector>(
     color: {
       type: String,
       default: 'cyan',
-      enum: ['cyan', 'emerald', 'rose', 'amber', 'purple', 'indigo', 'blue', 'orange'],
+      trim: true,
     },
     description: {
       type: String,

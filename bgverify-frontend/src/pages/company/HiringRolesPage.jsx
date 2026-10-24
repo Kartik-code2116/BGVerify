@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { roleAPI, sectorAPI } from '../../services/api';
 import toast from 'react-hot-toast';
+import SectorBadge, { resolveSectorColor } from '../../components/SectorBadge';
+import SectorColorPicker from '../../components/SectorColorPicker';
 import {
   Briefcase,
   Plus,
@@ -522,7 +524,6 @@ export default function HiringRolesPage() {
           {/* Real Sectors Cards */}
           {sectors.map((sec) => {
             const isSelected = selectedSector === sec.name;
-            const secStyle = getSectorStyle(sec.name);
 
             return (
               <div
@@ -536,9 +537,7 @@ export default function HiringRolesPage() {
               >
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${secStyle}`}>
-                      {sec.name.split('&')[0].trim()}
-                    </span>
+                    <SectorBadge sector={sec} sectorsList={sectors} size="xs" />
                     <div className="flex items-center gap-1.5">
                       {isSelected && (
                         <span className="text-[10px] text-primary-400 font-bold flex items-center gap-0.5">
@@ -702,9 +701,7 @@ export default function HiringRolesPage() {
                 <div>
                   {/* Top Badges & Edit Button */}
                   <div className="flex items-start justify-between gap-2 mb-3">
-                    <span className={`px-2.5 py-1 rounded-md text-xs font-semibold border ${getSectorStyle(role.sector)}`}>
-                      {role.sector}
-                    </span>
+                    <SectorBadge sector={role.sector} sectorsList={sectors} size="sm" />
                     <div className="flex items-center gap-1.5">
                       {getUrgencyBadge(role.urgency)}
                       <button
@@ -1118,44 +1115,40 @@ export default function HiringRolesPage() {
                   )}
                 </div>
 
-                <div className="grid-2">
-                  <div className="form-group" style={{ marginBottom: '12px' }}>
-                    <label className="form-label">Sector Name *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. EdTech & Academics / Automotive & EV"
-                      value={sectorFormData.name}
-                      onChange={(e) => setSectorFormData({ ...sectorFormData, name: e.target.value })}
-                      className="form-input"
+                <div className="space-y-3" style={{ marginBottom: '14px' }}>
+                  <div className="grid-2">
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label">Sector Name *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. EdTech & Academics / Automotive & EV"
+                        value={sectorFormData.name}
+                        onChange={(e) => setSectorFormData({ ...sectorFormData, name: e.target.value })}
+                        className="form-input"
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label">Sector Description (Optional)</label>
+                      <input
+                        type="text"
+                        placeholder="Brief description of the industry or department..."
+                        value={sectorFormData.description}
+                        onChange={(e) => setSectorFormData({ ...sectorFormData, description: e.target.value })}
+                        className="form-input"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Modern Sector Badge Color Theme Picker with Swatches, Custom HEX, Eyedropper & Real-time Preview */}
+                  <div>
+                    <SectorColorPicker
+                      value={sectorFormData.color}
+                      onChange={(color) => setSectorFormData({ ...sectorFormData, color })}
+                      sectorName={sectorFormData.name || 'Custom Sector'}
                     />
                   </div>
-
-                  <div className="form-group" style={{ marginBottom: '12px' }}>
-                    <label className="form-label">Sector Badge Color Theme</label>
-                    <select
-                      value={sectorFormData.color}
-                      onChange={(e) => setSectorFormData({ ...sectorFormData, color: e.target.value })}
-                      className="form-select"
-                    >
-                      {COLOR_OPTIONS.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="form-group" style={{ marginBottom: '12px' }}>
-                  <label className="form-label">Sector Description (Optional)</label>
-                  <input
-                    type="text"
-                    placeholder="Brief description of the industry or department..."
-                    value={sectorFormData.description}
-                    onChange={(e) => setSectorFormData({ ...sectorFormData, description: e.target.value })}
-                    className="form-input"
-                  />
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
@@ -1187,9 +1180,7 @@ export default function HiringRolesPage() {
                   >
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span className={`px-2 py-0.5 rounded text-xs font-semibold border ${getSectorStyle(sec.name)}`}>
-                          {sec.name}
-                        </span>
+                        <SectorBadge sector={sec} sectorsList={sectors} size="sm" />
                         <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                           {sec.roleCount || 0} active roles • {sec.candidateCount || 0} candidates
                         </span>
