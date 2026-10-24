@@ -1,9 +1,15 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+export const getApiBaseUrl = () => {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  if (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost') {
+    return `http://${window.location.hostname}:5000/api/v1`;
+  }
+  return 'http://localhost:5000/api/v1';
+};
 
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: getApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },
@@ -104,4 +110,14 @@ export const organizationAPI = {
 // ─── Audit Service ───────────────────────────────────────
 export const auditAPI = {
   list: (params) => api.get('/audit', { params }),
+};
+
+// ─── Payment Session Service (Real Phone QR Gateway) ─────
+export const paymentAPI = {
+  getNetworkInfo: () => api.get('/payments/network-info'),
+  createSession: (data) => api.post('/payments/session', data),
+  getSession: (id) => api.get(`/payments/session/${id}`),
+  getSessionStatus: (id) => api.get(`/payments/session/${id}/status`),
+  confirmSession: (id) => api.post(`/payments/session/${id}/confirm`),
+  rejectSession: (id) => api.post(`/payments/session/${id}/reject`),
 };

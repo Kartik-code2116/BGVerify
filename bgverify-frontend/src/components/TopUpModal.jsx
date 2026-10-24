@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { walletAPI } from '../services/api';
-import { X, Coins, Check, Zap, Sparkles } from 'lucide-react';
+import { X, Coins, Check, Zap, Sparkles, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
+import RazorpayGatewayModal from './RazorpayGatewayModal';
 
 const packages = [
   {
@@ -30,17 +31,25 @@ const packages = [
 export default function TopUpModal({ isOpen, onClose, onSuccess }) {
   const [selectedPack, setSelectedPack] = useState(500);
   const [submitting, setSubmitting] = useState(false);
+  const [isRazorpayOpen, setIsRazorpayOpen] = useState(false);
 
   if (!isOpen) return null;
 
   const currentPkg = packages.find((p) => p.coins === selectedPack);
 
-  const handlePurchase = async () => {
+  const handleOpenPaymentGateway = () => {
+    setIsRazorpayOpen(true);
+  };
+
+  const handleGatewaySuccess = async (paymentData) => {
     setSubmitting(true);
     try {
       await walletAPI.purchase({ packageAmount: selectedPack });
-      toast.success(`🎉 Successfully added ${selectedPack} BGCoins to your wallet!`);
+      toast.success(
+        `🎉 Payment Verified (${paymentData?.paymentId || 'pay_success'})! Successfully added ${selectedPack} BGCoins!`
+      );
       if (onSuccess) onSuccess();
+      setIsRazorpayOpen(false);
       onClose();
     } catch (err) {
       console.error(err);
@@ -165,22 +174,39 @@ export default function TopUpModal({ isOpen, onClose, onSuccess }) {
           </div>
         </div>
 
-        <div className="modal-footer">
-          <button type="button" className="btn btn-secondary" onClick={onClose} disabled={submitting}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={handlePurchase}
-            disabled={submitting}
-            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-          >
-            <Sparkles size={16} />
-            {submitting ? 'Processing...' : `Pay ₹${currentPkg?.price.toLocaleString('en-IN')} & Recharge`}
-          </button>
+        <div className="modal-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
+            <ShieldCheck size={14} color="#10b981" />
+            <span>Secured with Razorpay Standard Gateway</span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={submitting}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleOpenPaymentGateway}
+              disabled={submitting}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              <Sparkles size={16} />
+              {submitting ? 'Crediting Coins...' : `Pay ₹${currentPkg?.price.toLocaleString('en-IN')} via Razorpay`}
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Simulated Razorpay Checkout Gateway Modal */}
+      <RazorpayGatewayModal
+        isOpen={isRazorpayOpen}
+        onClose={() => setIsRazorpayOpen(false)}
+        onSuccess={handleGatewaySuccess}
+        amount={currentPkg?.price || 9000}
+        coins={currentPkg?.coins || 100}
+        orderTitle={`BGVerify ${currentPkg?.badge || 'Wallet'} Pack`}
+      />
     </div>
   );
 }

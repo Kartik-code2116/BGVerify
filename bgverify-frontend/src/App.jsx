@@ -8,6 +8,7 @@ import DashboardLayout from './layouts/DashboardLayout';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import LandingPage from './pages/LandingPage';
+import MobilePaymentPage from './pages/public/MobilePaymentPage';
 
 // Admin Portal Pages
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
@@ -68,9 +69,10 @@ export default function App() {
       />
       <BrowserRouter>
         <Routes>
-          {/* Public Auth Routes */}
+          {/* Public Auth Routes & Mobile Gateway */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/pay/:sessionId" element={<MobilePaymentPage />} />
           <Route path="/" element={<HomePage />} />
 
           {/* Admin Portal */}

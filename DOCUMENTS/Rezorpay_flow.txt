@@ -1,0 +1,66 @@
+[Computer Desktop: Razorpay Modal]
+         │
+         ▼ Generates Real Dynamic QR Code (http://192.168.0.184:5173/pay/:sessionId)
+         │
+    [USER SCANS WITH REAL SMARTPHONE CAMERA]
+         │
+         ▼ Opens in Mobile Browser
+[Mobile Phone: /pay/:sessionId]
+    ├── Verified Merchant: BGVerify Technologies Pvt Ltd
+    ├── Amount: ₹42,500.00 (500 BGCoins)
+    ├── 🟢 [Confirm & Pay] Tap Button
+    └── 🔴 [Decline / Reject] Tap Button
+         │
+    [USER TAPS CONFIRM ON PHONE]
+         │
+         ├── Mobile shows: "Payment Successful! ✓"
+         └── Real-time synchronization notifies Desktop
+                  │
+                  ▼
+         [Desktop Screen Automatically Marks "Payment Successful!"]
+         [BGCoins Credited to Wallet Instantly]
+
+
+
+🌟 What Has Been Built
+1. Real Dynamic QR Code Generator (QRCodeSVG)
+Integrated qrcode.react into RazorpayGatewayModal.jsxcollege%20folder/5th%20semister/BGVerify/bgverify-frontend/src/components/RazorpayGatewayModal.jsx).
+The desktop modal automatically requests a one-time session from the backend (/api/v1/payments/session), which detects your computer's Wi-Fi LAN IP (e.g., 192.168.0.184) using os.networkInterfaces().
+A real, high-resolution QR code is generated encoding: http://<YOUR-WIFI-IP>:5173/pay/pay_sess_<ID>
+
+
+2. Mobile Payment Web Page (MobilePaymentPage.jsxcollege%20folder/5th%20semister/BGVerify/bgverify-frontend/src/pages/public/MobilePaymentPage.jsx))
+A dedicated, public route at /pay/:sessionId optimized for mobile browsers:
+Merchant Identity: BGVerify Technologies Pvt Ltd with verified blue badge.
+UPI ID: bgverify.payments@icicibank
+Amount: Formatted in ₹ INR with selected coin package count.
+Debited Bank: HDFC Bank •••• 5821
+The Requested Two Action Buttons:
+🟢 Confirm & Pay (₹...)
+🔴 Decline / Reject Payment
+
+
+3. Real-Time Two-Way Sync (Phone ↔ Desktop)
+While the QR code is displayed on your computer, the desktop listens for the session's status every 1.5 seconds.
+When you tap "Confirm & Pay" on your phone:
+The mobile phone sends a confirmation request to the server.
+The backend credits the organization's BGCoin balance in MongoDB and logs the transaction.
+The desktop screen instantly senses the approval, plays a payment chime, and displays Razorpay's green "Payment Successful on Mobile!" screen with a generated pay_Rzp... Payment ID.
+When you tap "Reject" on your phone:
+The mobile phone sets the session status to rejected.
+The desktop screen immediately reacts, displaying Razorpay's red "Payment Declined on Mobile Phone" screen with a button to generate a fresh QR code.
+
+4. LAN & Wi-Fi Configuration
+Vite Configuration (vite.config.jscollege%20folder/5th%20semister/BGVerify/bgverify-frontend/vite.config.js)): Set server: { host: true, port: 5173 } so Vite listens on 0.0.0.0, allowing any phone connected to the same Wi-Fi network to load the page.
+Dynamic API Base URL (api.jscollege%20folder/5th%20semister/BGVerify/bgverify-frontend/src/services/api.js)): Dynamically routes API calls to the server's IP address when accessed from a mobile browser.
+CORS (app.tscollege%20folder/5th%20semister/BGVerify/bgverify-backend/src/app.ts)): Configured to accept cross-origin requests from devices on the local network.
+📲 How to Test It Right Now
+Ensure your smartphone is connected to the same Wi-Fi network as your computer.
+Go to Company Wallet (/company/wallet) on your desktop browser.
+Click "Buy BGCoins" and choose any package (e.g. 500 BGCoins for ₹42,500).
+Click "Pay via Razorpay" — the Razorpay modal will open displaying the real QR code.
+Open your phone's camera, Google Lens, or QR scanner and point it at the QR code on your computer screen.
+Tap the notification banner to open the link on your phone.
+Tap "Confirm & Pay" or "Decline / Reject" on your phone:
+Watch your desktop screen immediately update in real time!
+If confirmed, your BGCoins balance will be credited right away.

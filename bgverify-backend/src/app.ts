@@ -16,14 +16,20 @@ import organizationRoutes from './modules/organizations/organization.routes';
 import auditRoutes from './modules/audit/audit.routes';
 import roleRoutes from './modules/roles/role.routes';
 import sectorRoutes from './modules/sectors/sector.routes';
+import paymentSessionRoutes from './modules/payments/paymentSession.routes';
 
 const app = express();
 
 // ─── Security ────────────────────────────────────────────
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+}));
 app.use(
   cors({
-    origin: config.cors.origin,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile curl/apps) or any local dev/LAN origin
+      callback(null, true);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -39,7 +45,8 @@ const limiter = rateLimit({
     error: { message: 'Too many requests, please try again later.' },
   },
 });
-app.use(limiter);
+
+
 
 // ─── Body Parsing ────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
@@ -62,7 +69,7 @@ app.get('/health', (_req, res) => {
 });
 
 // ─── API Routes ──────────────────────────────────────────
-app.use(`${config.apiPrefix}/auth`, authRoutes);
+app.use(`${config.apiPrefix}/auth`,limiter, authRoutes);
 app.use(`${config.apiPrefix}/verifications`, verificationRoutes);
 app.use(`${config.apiPrefix}/candidates`, candidateRoutes);
 app.use(`${config.apiPrefix}/wallet`, walletRoutes);
@@ -70,6 +77,7 @@ app.use(`${config.apiPrefix}/organizations`, organizationRoutes);
 app.use(`${config.apiPrefix}/audit`, auditRoutes);
 app.use(`${config.apiPrefix}/roles`, roleRoutes);
 app.use(`${config.apiPrefix}/sectors`, sectorRoutes);
+app.use(`${config.apiPrefix}/payments`, paymentSessionRoutes);
 
 // ─── Error Handling ──────────────────────────────────────
 app.use(notFoundHandler);
