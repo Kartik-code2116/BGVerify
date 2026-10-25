@@ -21,6 +21,9 @@ import portalRoutes from './modules/portals/portal.routes';
 
 const app = express();
 
+// Trust reverse proxy (e.g. Nginx in Docker) so express-rate-limit and req.ip work properly
+app.set('trust proxy', 1);
+
 // ─── Security ────────────────────────────────────────────
 app.use(helmet({
   crossOriginResourcePolicy: false,
@@ -45,6 +48,7 @@ const limiter = rateLimit({
     success: false,
     error: { message: 'Too many requests, please try again later.' },
   },
+  validate: { xForwardedForHeader: false },
 });
 
 

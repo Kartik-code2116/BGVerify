@@ -51,7 +51,8 @@ services:
       BGCOIN_PRICE_100: ${BGCOIN_PRICE_100:-9000}
       BGCOIN_PRICE_500: ${BGCOIN_PRICE_500:-42500}
       BGCOIN_PRICE_1000: ${BGCOIN_PRICE_1000:-80000}
-    # Do NOT expose port 5000 externally — Nginx proxies to it internally
+    ports:
+      - "5000:5000"
     expose:
       - "5000"
     networks:

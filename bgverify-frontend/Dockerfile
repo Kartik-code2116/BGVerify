@@ -18,8 +18,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# VITE_API_URL is injected at build time via docker-compose build args
-ARG VITE_API_URL=http://localhost:5000/api/v1
+# VITE_API_URL is injected at build time via docker-compose build args (default /api/v1 for Nginx reverse proxy)
+ARG VITE_API_URL=/api/v1
 ENV VITE_API_URL=$VITE_API_URL
 
 RUN npm run build
